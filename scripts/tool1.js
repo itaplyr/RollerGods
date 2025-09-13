@@ -1,3 +1,4 @@
+//v0.1.0
 export default {
   name: "Tool 1",
   action: () => {
@@ -49,7 +50,7 @@ export default {
       const itemId = "61b35fea67433d2dc586f7fe";
       const itemType = "mutation_component";
       const currency = "RLT";
-      const priceThreshold = 1800; // buy if price is below this value
+      const priceThreshold = 2200; // buy if price is below this value
 
       // Read CSRF token & auth token
       const csrfToken = (document.cookie.match(/x-csrf=([^;]+)/) || [])[1];
@@ -111,15 +112,20 @@ export default {
               totalPrice: price * quantity
             })
           });
-          const json = await res.json();
-          console.log("Purchase response:", json);
+          return res;
         } catch (err) {
           console.error("Error purchasing item:", err);
         }
       }
 
-      // Poll every 100ms
+      // Flags to prevent multiple requests
+      let purchased = false;
+      let requestInProgress = false;
+
+      // Polling loop
       window.tool1Interval = setInterval(async () => {
+        if (purchased || requestInProgress) return;
+
         const offer = await getFirstOffer();
         if (!offer) return;
 
@@ -127,11 +133,27 @@ export default {
         console.log("First offer - Price:", price, "Quantity:", quantity);
 
         if (price < priceThreshold) {
-          console.log(`Price below threshold (${priceThreshold}), attempting purchase...`);
-          await buyItem(price, quantity);
-        }
-      }, 100);
+          requestInProgress = true;
+          try {
+            const res = await buyItem(price, quantity);
+            if (!res) return;
 
+            const json = await res.json();
+            console.log("Purchase response:", json);
+
+            if (res.status === 409 || (json && json.error === "Conflict")) {
+              console.warn("Purchase conflict, stopping tool.");
+              purchased = true;
+            } else {
+              purchased = true;
+            }
+          } catch (err) {
+            console.error("Error during purchase:", err);
+          } finally {
+            requestInProgress = false;
+          }
+        }
+      }, 50); // low polling interval
     })();
   },
   stop: () => {
