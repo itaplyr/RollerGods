@@ -214,23 +214,58 @@
 
       // === Tool1 gets special config UI ===
       if (file === "tool1.js") {
-        const label1 = document.createElement("label");
-        label1.textContent = "Select Product ID:";
-        toolUI.appendChild(label1);
+        const labelPart = document.createElement("label");
+        labelPart.textContent = "Select Part:";
+        toolUI.appendChild(labelPart);
 
-        const select = document.createElement("select");
-        const productIds = {
-          "Mutation Component": "61b35fea67433d2dc586f7fe",
-          "Another Product": "1234567890abcdef",
-          "Third Product": "abcdef1234567890"
-        };
-        for (let [name, id] of Object.entries(productIds)) {
+        const selectPart = document.createElement("select");
+        const parts = ["Hashboard", "Wire", "Fan"];
+        for (let part of parts) {
           const opt = document.createElement("option");
-          opt.value = id;
-          opt.textContent = name;
-          select.appendChild(opt);
+          opt.value = part;
+          opt.textContent = part;
+          selectPart.appendChild(opt);
         }
-        toolUI.appendChild(select);
+        toolUI.appendChild(selectPart);
+
+        const labelRarity = document.createElement("label");
+        labelRarity.textContent = "Select Rarity:";
+        toolUI.appendChild(labelRarity);
+
+        const selectRarity = document.createElement("select");
+        const rarities = ["Common", "Uncommon", "Rare", "Epic", "Legendary"];
+        for (let rarity of rarities) {
+          const opt = document.createElement("option");
+          opt.value = rarity;
+          opt.textContent = rarity;
+          selectRarity.appendChild(opt);
+        }
+        toolUI.appendChild(selectRarity);
+
+        // Mapping part+rarity to IDs
+        const productIds = {
+          "Hashboard": {
+            "Common": "61b3606767433d2dc58913a9",
+            "Uncommon": "6319f840a8ce530569ef82b7",
+            "Rare": "61b35e3767433d2dc57f86a2",
+            "Epic": "6319fc56a8ce530569024d79",
+            "Legendary": "6196289f67433d2dc53c0c5d"
+          },
+          "Wire": {
+            "Common": "61b3604967433d2dc58893b0",
+            "Uncommon": "6319f81fa8ce530569eee9dd",
+            "Rare": "61b35dcd67433d2dc57daca3",
+            "Epic": "6319f969a8ce530569f4b3e8",
+            "Legendary": "6196281467433d2dc53872b3"
+          },
+          "Fan": {
+            "Common": "61b35fea67433d2dc586f7fe",
+            "Uncommon": "6319f7baa8ce530569ed16b9",
+            "Rare": "61b35dac67433d2dc57d1156",
+            "Epic": "6319f918a8ce530569f33dd5",
+            "Legendary": "6196269b67433d2dc52e0130"
+          }
+        };
 
         const label2 = document.createElement("label");
         label2.textContent = "Price Threshold:";
@@ -244,8 +279,11 @@
         const runBtn = document.createElement("button");
         runBtn.textContent = "Run Tool1";
         runBtn.addEventListener("click", () => {
+          const part = selectPart.value;
+          const rarity = selectRarity.value;
+          const itemId = productIds[part][rarity];
           module.default.action({
-            itemId: select.value,
+            itemId,
             priceThreshold: parseInt(input.value, 10)
           });
         });

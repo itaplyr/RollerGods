@@ -1,4 +1,4 @@
-// v0.3.0 - Configurable product + threshold
+// v0.3.1 - Configurable product + threshold + restart + save config
 export default {
   name: "Tool 1",
   action: ({ itemId, priceThreshold } = {}) => {
@@ -8,16 +8,22 @@ export default {
     }
     window.tool1Running = true;
 
+    // save config for next run
+    if (itemId) localStorage.setItem("tool1_itemId", itemId);
+    if (priceThreshold) localStorage.setItem("tool1_priceThreshold", priceThreshold);
+
     (async () => {
+      // load pako if missing
       if (!window.pako) {
         await new Promise(resolve => {
-          const script = document.createElement('script');
-          script.src = 'https://cdn.jsdelivr.net/npm/pako@2.1.0/dist/pako.min.js';
+          const script = document.createElement("script");
+          script.src = "https://cdn.jsdelivr.net/npm/pako@2.1.0/dist/pako.min.js";
           script.onload = resolve;
           document.head.appendChild(script);
         });
       }
 
+      // === decoding helpers ===
       function os(t) { return Uint8Array.from(atob(t), c => c.charCodeAt(0)); }
       function ds(t) {
         const c = new DataView(t.buffer);
@@ -35,7 +41,10 @@ export default {
       function us(t, c) {
         let a = c;
         const s = [];
-        for (const [n, l] of t) { a += n; if (l !== 0) s.push([a, l]); }
+        for (const [n, l] of t) {
+          a += n;
+          if (l !== 0) s.push([a, l]);
+        }
         return s;
       }
       function gs(t) {
@@ -45,6 +54,7 @@ export default {
         return us(s, n);
       }
 
+      // === config ===
       const itemType = "mutation_component";
       const currency = "RLT";
 
@@ -57,17 +67,21 @@ export default {
         return;
       }
 
+      // === API helpers ===
       async function fetchTradeOffers() {
-        const res = await fetch(`https://rollercoin.com/api/marketplace/item-info?itemId=${itemId}&itemType=${itemType}&currency=${currency}`, {
-          method: "GET",
-          credentials: "include",
-          headers: {
-            "Authorization": "Bearer " + authToken,
-            "CSRF-Token": csrfToken,
-            "X-KL-Ajax-Request": "Ajax_Request",
-            "Accept": "application/json"
+        const res = await fetch(
+          `https://rollercoin.com/api/marketplace/item-info?itemId=${itemId}&itemType=${itemType}&currency=${currency}`,
+          {
+            method: "GET",
+            credentials: "include",
+            headers: {
+              "Authorization": "Bearer " + authToken,
+              "CSRF-Token": csrfToken,
+              "X-KL-Ajax-Request": "Ajax_Request",
+              "Accept": "application/json",
+            },
           }
-        });
+        );
         const json = await res.json();
         if (!json.success) throw new Error(json.error || "API error");
         return json.data.tradeOffers;
@@ -93,7 +107,7 @@ export default {
               "Authorization": "Bearer " + authToken,
               "CSRF-Token": csrfToken,
               "X-KL-Ajax-Request": "Ajax_Request",
-              "Content-Type": "application/json"
+              "Content-Type": "application/json",
             },
             body: JSON.stringify({
               challenge: "",
@@ -102,8 +116,8 @@ export default {
               itemType,
               totalCount: quantity,
               currency,
-              totalPrice: price * quantity
-            })
+              totalPrice: price * quantity,
+            }),
           });
           return res.json();
         } catch (err) {
@@ -112,6 +126,7 @@ export default {
         }
       }
 
+      // === main loop ===
       async function runTool() {
         if (!window.tool1Running) return;
         let purchased = false;
@@ -130,20 +145,21 @@ export default {
             console.log("Price below threshold, attempting purchase...");
             const json = await buyItem(price, quantity);
             if (!json) break;
-            console.log("Purchase response:", json);
 
+            console.log("Purchase response:", json);
             if (json.error === "Conflict") {
               console.warn("Purchase conflict (409), stopping current iteration.");
             } else {
-              console.log("Purchase successful!");
+              console.log("✅ Purchase successful!");
             }
             purchased = true;
           }
+
           await new Promise(r => setTimeout(r, 50));
         }
 
         if (window.tool1Running) {
-          console.log("Restarting Tool1 for next purchase...");
+          console.log("🔄 Restarting Tool1 for next purchase...");
           setTimeout(runTool, 100);
         }
       }
@@ -153,6 +169,6 @@ export default {
   },
   stop: () => {
     window.tool1Running = false;
-    console.log("Tool1 stopped!");
-  }
+    console.log("🛑 Tool1 stopped!");
+  },
 };
