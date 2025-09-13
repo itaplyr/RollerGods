@@ -1,11 +1,12 @@
-//v0.1.0
 export default {
   name: "Tool 1",
   action: () => {
-    if (window.tool1Interval) {
+    if (window.tool1Running) {
       console.warn("Tool1 is already running!");
       return;
     }
+
+    window.tool1Running = true;
 
     (async () => {
       // Load pako if not present
@@ -18,7 +19,6 @@ export default {
         });
       }
 
-      // Helper functions
       function os(t) { return Uint8Array.from(atob(t), c => c.charCodeAt(0)); }
       function ds(t) {
         const c = new DataView(t.buffer);
@@ -50,18 +50,17 @@ export default {
       const itemId = "61b35fea67433d2dc586f7fe";
       const itemType = "mutation_component";
       const currency = "RLT";
-      const priceThreshold = 2200; // buy if price is below this value
+      const priceThreshold = 1700;
 
-      // Read CSRF token & auth token
       const csrfToken = (document.cookie.match(/x-csrf=([^;]+)/) || [])[1];
       const authToken = window.localStorage.getItem("token") || "";
 
       if (!csrfToken || !authToken) {
         console.error("Missing CSRF or auth token.");
+        window.tool1Running = false;
         return;
       }
 
-      // Fetch tradeOffers string
       async function fetchTradeOffers() {
         const res = await fetch(`https://rollercoin.com/api/marketplace/item-info?itemId=${itemId}&itemType=${itemType}&currency=${currency}`, {
           method: "GET",
@@ -78,19 +77,17 @@ export default {
         return json.data.tradeOffers;
       }
 
-      // Decode tradeOffers and get first item [price, quantity]
       async function getFirstOffer() {
         try {
           const tradeOffers = await fetchTradeOffers();
           const offers = gs(tradeOffers);
-          return offers[0] || null; // [price, quantity]
+          return offers[0] || null;
         } catch (err) {
           console.error("Error decoding tradeOffers:", err);
           return null;
         }
       }
 
-      // Purchase request
       async function buyItem(price, quantity) {
         try {
           const res = await fetch("https://rollercoin.com/api/marketplace/purchase-item", {
@@ -112,55 +109,50 @@ export default {
               totalPrice: price * quantity
             })
           });
-          return res;
+          return res.json();
         } catch (err) {
-          console.error("Error purchasing item:", err);
+          console.error("Error during purchase:", err);
+          return null;
         }
       }
 
-      // Flags to prevent multiple requests
+      // === Main async loop ===
       let purchased = false;
-      let requestInProgress = false;
 
-      // Polling loop
-      window.tool1Interval = setInterval(async () => {
-        if (purchased || requestInProgress) return;
-
+      while (window.tool1Running && !purchased) {
         const offer = await getFirstOffer();
-        if (!offer) return;
+        if (!offer) {
+          await new Promise(r => setTimeout(r, 50));
+          continue;
+        }
 
         const [price, quantity] = offer;
         console.log("First offer - Price:", price, "Quantity:", quantity);
 
         if (price < priceThreshold) {
-          requestInProgress = true;
-          try {
-            const res = await buyItem(price, quantity);
-            if (!res) return;
+          console.log("Price below threshold, attempting purchase...");
+          const json = await buyItem(price, quantity);
 
-            const json = await res.json();
-            console.log("Purchase response:", json);
+          if (!json) break;
 
-            if (res.status === 409 || (json && json.error === "Conflict")) {
-              console.warn("Purchase conflict, stopping tool.");
-              purchased = true;
-            } else {
-              purchased = true;
-            }
-          } catch (err) {
-            console.error("Error during purchase:", err);
-          } finally {
-            requestInProgress = false;
+          console.log("Purchase response:", json);
+
+          if (json.error === "Conflict") {
+            console.warn("Purchase conflict (409), stopping tool.");
+          } else {
+            console.log("Purchase successful!");
           }
+          purchased = true; // ensure only one purchase
         }
-      }, 50); // low polling interval
+
+        await new Promise(r => setTimeout(r, 50));
+      }
+
+      window.tool1Running = false;
     })();
   },
   stop: () => {
-    if (window.tool1Interval) {
-      clearInterval(window.tool1Interval);
-      window.tool1Interval = null;
-      console.log("Tool1 stopped!");
-    }
+    window.tool1Running = false;
+    console.log("Tool1 stopped!");
   }
 };
