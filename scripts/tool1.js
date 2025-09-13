@@ -1,3 +1,4 @@
+// v0.2.0 - Auto-restart after purchase
 export default {
   name: "Tool 1",
   action: () => {
@@ -116,37 +117,50 @@ export default {
         }
       }
 
-      // === Main async loop ===
-      let purchased = false;
+      // === Main polling loop function ===
+      async function runTool() {
+        if (!window.tool1Running) return;
 
-      while (window.tool1Running && !purchased) {
-        const offer = await getFirstOffer();
-        if (!offer) {
-          await new Promise(r => setTimeout(r, 50));
-          continue;
-        }
+        let purchased = false;
 
-        const [price, quantity] = offer;
-        console.log("First offer - Price:", price, "Quantity:", quantity);
-
-        if (price < priceThreshold) {
-          console.log("Price below threshold, attempting purchase...");
-          const json = await buyItem(price, quantity);
-
-          if (!json) break;
-
-          console.log("Purchase response:", json);
-
-          if (json.error === "Conflict") {
-            console.warn("Purchase conflict (409), stopping tool.");
-          } else {
-            console.log("Purchase successful!");
+        while (window.tool1Running && !purchased) {
+          const offer = await getFirstOffer();
+          if (!offer) {
+            await new Promise(r => setTimeout(r, 50));
+            continue;
           }
-          purchased = true; // ensure only one purchase
+
+          const [price, quantity] = offer;
+          console.log("First offer - Price:", price, "Quantity:", quantity);
+
+          if (price < priceThreshold) {
+            console.log("Price below threshold, attempting purchase...");
+            const json = await buyItem(price, quantity);
+
+            if (!json) break;
+
+            console.log("Purchase response:", json);
+
+            if (json.error === "Conflict") {
+              console.warn("Purchase conflict (409), stopping current iteration.");
+            } else {
+              console.log("Purchase successful!");
+            }
+
+            purchased = true; // ensure only one purchase
+          }
+
+          await new Promise(r => setTimeout(r, 50));
         }
 
-        await new Promise(r => setTimeout(r, 50));
+        // Auto-restart after purchase
+        if (window.tool1Running) {
+          console.log("Restarting Tool1 for next purchase...");
+          setTimeout(runTool, 100); // small delay before next run
+        }
       }
+
+      runTool(); // start the loop
     })();
   },
   stop: () => {
