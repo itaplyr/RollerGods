@@ -49,6 +49,7 @@ export default {
       const itemId = "61b35fea67433d2dc586f7fe";
       const itemType = "mutation_component";
       const currency = "RLT";
+      const priceThreshold = 1800; // buy if price is below this value
 
       // Read CSRF token & auth token
       const csrfToken = (document.cookie.match(/x-csrf=([^;]+)/) || [])[1];
@@ -76,23 +77,59 @@ export default {
         return json.data.tradeOffers;
       }
 
-      // Decode tradeOffers and get first item price
-      async function getFirstPrice() {
+      // Decode tradeOffers and get first item [price, quantity]
+      async function getFirstOffer() {
         try {
           const tradeOffers = await fetchTradeOffers();
           const offers = gs(tradeOffers);
-          return offers[0]?.[1] || null; // [price, quantity], we want price
+          return offers[0] || null; // [price, quantity]
         } catch (err) {
           console.error("Error decoding tradeOffers:", err);
           return null;
         }
       }
 
-      // Poll every 100ms and store interval ID
+      // Purchase request
+      async function buyItem(price, quantity) {
+        try {
+          const res = await fetch("https://rollercoin.com/api/marketplace/purchase-item", {
+            method: "POST",
+            credentials: "include",
+            headers: {
+              "Authorization": "Bearer " + authToken,
+              "CSRF-Token": csrfToken,
+              "X-KL-Ajax-Request": "Ajax_Request",
+              "Content-Type": "application/json"
+            },
+            body: JSON.stringify({
+              challenge: "",
+              action: "marketplace",
+              itemId,
+              itemType,
+              totalCount: quantity,
+              currency,
+              totalPrice: price * quantity
+            })
+          });
+          const json = await res.json();
+          console.log("Purchase response:", json);
+        } catch (err) {
+          console.error("Error purchasing item:", err);
+        }
+      }
+
+      // Poll every 100ms
       window.tool1Interval = setInterval(async () => {
-        const price = await getFirstPrice();
-        if (price !== null) console.log("First item price:", price);
-        else console.log("No price available.");
+        const offer = await getFirstOffer();
+        if (!offer) return;
+
+        const [price, quantity] = offer;
+        console.log("First offer - Price:", price, "Quantity:", quantity);
+
+        if (price < priceThreshold) {
+          console.log(`Price below threshold (${priceThreshold}), attempting purchase...`);
+          await buyItem(price, quantity);
+        }
       }, 100);
 
     })();
