@@ -1,6 +1,6 @@
 (function() {
   // ===== Config =====
-  const repoBase = "https://raw.githubusercontent.com/itaplyr/RollerGods/main/scripts/";
+  const repoBase = "https://itaplyr.github.io/RollerGods/scripts/";
 
   const toolList = [
     "tool1.js",
