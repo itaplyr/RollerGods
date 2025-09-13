@@ -1,21 +1,20 @@
 (function() {
   // ===== Config =====
   const repoBase = "https://itaplyr.github.io/RollerGods/scripts/";
-
   const toolList = [
     "tool1.js",
     "tool2.js",
     "tool3.js"
-    // Add more filenames from /scripts/
+    // Add more tool filenames here
   ];
 
-  // ===== Create Styles =====
+  // ===== Styles =====
   const style = document.createElement("style");
   style.textContent = `
     #myToolsPanel {
       position: fixed;
       top: 50px; left: 50px;
-      width: 280px; height: 200px;
+      width: 600px; height: 400px;
       background: rgba(34,34,34,0.7);
       backdrop-filter: blur(10px);
       color: #fff;
@@ -25,8 +24,8 @@
       z-index: 999999;
       display: flex;
       flex-direction: column;
-      overflow: hidden;
       font-family: system-ui, sans-serif;
+      overflow: hidden;
     }
     #myToolsPanelHeader {
       background: rgba(255,255,255,0.1);
@@ -50,14 +49,20 @@
     #myToolsPanelClose:hover {
       background: rgba(220,0,0,0.8);
     }
-    #myToolsPanelContent {
+    #myToolsBody {
       flex: 1;
-      padding: 10px;
+      display: flex;
+      overflow: hidden;
+    }
+    #myToolsMenu {
+      width: 150px;
+      background: rgba(0,0,0,0.3);
+      display: flex;
+      flex-direction: column;
+      padding: 5px;
       overflow-y: auto;
     }
-    #myToolsPanelContent button {
-      display: block;
-      width: 100%;
+    #myToolsMenu button {
       margin: 5px 0;
       padding: 6px;
       border: none;
@@ -65,10 +70,21 @@
       background: rgba(255,255,255,0.1);
       color: #fff;
       cursor: pointer;
+      text-align: left;
       transition: background 0.2s;
     }
-    #myToolsPanelContent button:hover {
+    #myToolsMenu button.active {
+      background: rgba(50,200,50,0.3);
+    }
+    #myToolsMenu button:hover {
       background: rgba(255,255,255,0.2);
+    }
+    #myToolsContent {
+      flex: 1;
+      background: rgba(34,34,34,0.6);
+      padding: 10px;
+      overflow-y: auto;
+      position: relative;
     }
     #myToolsResizeHandle {
       width: 12px; height: 12px;
@@ -86,17 +102,19 @@
   panel.id = "myToolsPanel";
   panel.innerHTML = `
     <div id="myToolsPanelHeader">
-      <span>RollerGods Tools</span>
+      <span>RollerGods Manager</span>
       <div id="myToolsPanelClose">×</div>
     </div>
-    <div id="myToolsPanelContent">
-      <p>Loading tools...</p>
+    <div id="myToolsBody">
+      <div id="myToolsMenu"><p>Loading tools...</p></div>
+      <div id="myToolsContent">Select a tool to manage it</div>
     </div>
     <div id="myToolsResizeHandle"></div>
   `;
   document.body.appendChild(panel);
 
-  const content = panel.querySelector("#myToolsPanelContent");
+  const menu = panel.querySelector("#myToolsMenu");
+  const content = panel.querySelector("#myToolsContent");
 
   // ===== Dragging =====
   (function() {
@@ -139,10 +157,8 @@
 
     document.addEventListener("mousemove", e => {
       if (!isResizing) return;
-      const newW = startW + (e.clientX - startX);
-      const newH = startH + (e.clientY - startY);
-      panel.style.width = newW + "px";
-      panel.style.height = newH + "px";
+      panel.style.width = startW + (e.clientX - startX) + "px";
+      panel.style.height = startH + (e.clientY - startY) + "px";
     });
 
     document.addEventListener("mouseup", () => {
@@ -156,26 +172,63 @@
     panel.remove();
   });
 
-  // ===== Load Tools =====
-  async function loadTools() {
-    content.innerHTML = "";
-    for (let file of toolList) {
-      try {
-        const module = await import(repoBase + file + "?v=" + Date.now()); // no cache
-        if (module && module.default) {
-          const btn = document.createElement("button");
-          btn.textContent = module.default.name || file.replace(".js","");
-          btn.onclick = module.default.action;
-          content.appendChild(btn);
-        }
-      } catch (err) {
-        console.error("Failed to load", file, err);
-        const msg = document.createElement("div");
-        msg.textContent = `⚠️ Error loading ${file}`;
-        content.appendChild(msg);
+  // ===== Tool Management =====
+  const loadedTools = {}; // track module objects
+  let currentTool = null;
+
+  async function selectTool(file, button) {
+    // Highlight menu
+    menu.querySelectorAll("button").forEach(b => b.classList.remove("active"));
+    button.classList.add("active");
+
+    content.innerHTML = `<p>Loading ${file}...</p>`;
+
+    try {
+      const module = await import(repoBase + file + "?v=" + Date.now());
+      loadedTools[file] = module.default;
+
+      currentTool = file;
+
+      // Show manager
+      content.innerHTML = "";
+      const toolUI = document.createElement("div");
+
+      // Tool name
+      const title = document.createElement("h3");
+      title.textContent = module.default.name || file.replace(".js","");
+      toolUI.appendChild(title);
+
+      // Run button
+      const runBtn = document.createElement("button");
+      runBtn.textContent = "Run";
+      runBtn.addEventListener("click", () => module.default.action?.());
+      toolUI.appendChild(runBtn);
+
+      // Optional: Stop button
+      if (module.default.stop) {
+        const stopBtn = document.createElement("button");
+        stopBtn.textContent = "Stop";
+        stopBtn.addEventListener("click", () => module.default.stop());
+        toolUI.appendChild(stopBtn);
       }
+
+      content.appendChild(toolUI);
+    } catch (err) {
+      content.innerHTML = `<p style="color:red;">Failed to load tool: ${err}</p>`;
+      console.error("Failed to load tool:", file, err);
     }
   }
 
-  loadTools();
+  // ===== Load Menu =====
+  function loadMenu() {
+    menu.innerHTML = "";
+    for (let file of toolList) {
+      const btn = document.createElement("button");
+      btn.textContent = file.replace(".js","");
+      btn.addEventListener("click", () => selectTool(file, btn));
+      menu.appendChild(btn);
+    }
+  }
+
+  loadMenu();
 })();
