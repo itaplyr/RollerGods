@@ -82,15 +82,6 @@ export default {
             },
           }
         );
-        if (res.status === 401) {
-          console.warn("Session expired (401). Reloading iframe...");
-          // Tell parent to reload the iframe
-          if (window.parent && window.parent.createRollerGodsIframe) {
-            window.parent.createRollerGodsIframe();
-          }
-          window.tool1Running = false;
-          return null;
-        }
         const json = await res.json();
         if (!json.success) throw new Error(json.error || "API error");
         return json.data.tradeOffers;
@@ -128,6 +119,12 @@ export default {
               totalPrice: price * quantity,
             }),
           });
+          if (res.status === 401) {
+            localStorage.setItem("rollergods_autorun", "1");
+            window.location.reload();
+            window.tool1Running = false;
+            return null;
+          }
           return res.json();
         } catch (err) {
           console.error("Error during purchase:", err);
