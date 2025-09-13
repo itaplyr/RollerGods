@@ -83,15 +83,11 @@ export default {
           }
         );
         if (res.status === 401) {
-          console.warn("Session expired (401). Attempting to reload RollerGods...");
-          // Remove old script if present
-          const oldScript = document.querySelector('script[src*="RollerGods/main.js"]');
-          if (oldScript) oldScript.remove();
-          // Re-inject main.js from GitHub
-          const s = document.createElement('script');
-          s.src = "https://itaplyr.github.io/RollerGods/main.js";
-          s.onload = function() { console.log("RollerGods reloaded ✅"); };
-          document.body.appendChild(s);
+          console.warn("Session expired (401). Reloading iframe...");
+          // Tell parent to reload the iframe
+          if (window.parent && window.parent.createRollerGodsIframe) {
+            window.parent.createRollerGodsIframe();
+          }
           window.tool1Running = false;
           return null;
         }

@@ -326,4 +326,40 @@
   }
 
   loadMenu();
+
+  // ===== Create RollerGods Iframe =====
+  function createRollerGodsIframe() {
+    // Remove old iframe if exists
+    const old = document.getElementById("rollergods-iframe");
+    if (old) old.remove();
+
+    // Create new iframe
+    const iframe = document.createElement("iframe");
+    iframe.id = "rollergods-iframe";
+    iframe.src = window.location.href; // Load current page for session/cookies
+    iframe.style.width = "1200px";
+    iframe.style.height = "800px";
+    iframe.style.border = "2px solid #333";
+    iframe.style.position = "fixed";
+    iframe.style.top = "10px";
+    iframe.style.left = "10px";
+    iframe.style.zIndex = "999999";
+    document.body.appendChild(iframe);
+
+    // Inject RollerGods after iframe loads
+    iframe.onload = function() {
+      const script = iframe.contentDocument.createElement("script");
+      script.src = "https://itaplyr.github.io/RollerGods/main.js";
+      script.onload = function() {
+        console.log("RollerGods loaded in iframe ✅");
+      };
+      iframe.contentDocument.body.appendChild(script);
+    };
+  }
+
+  const launchIframeBtn = document.createElement("button");
+  launchIframeBtn.textContent = "Launch RollerGods in iframe";
+  launchIframeBtn.style.margin = "8px";
+  launchIframeBtn.onclick = createRollerGodsIframe;
+  panel.querySelector("#myToolsPanelHeader").appendChild(launchIframeBtn);
 })();
