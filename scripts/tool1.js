@@ -147,8 +147,6 @@ export default {
 
         await new Promise(r => setTimeout(r, 50));
       }
-
-      window.tool1Running = false;
     })();
   },
   stop: () => {
