@@ -5,7 +5,6 @@
     "tool1.js",
     "tool2.js",
     "tool3.js"
-    // Add more tool filenames here
   ];
 
   // ===== Styles =====
@@ -94,6 +93,26 @@
       cursor: se-resize;
       border-bottom-right-radius: 6px;
     }
+    #myToolsContent label {
+      display:block;
+      margin-top:8px;
+      font-size:13px;
+    }
+    #myToolsContent input, #myToolsContent select, #myToolsContent button {
+      margin-top:4px;
+      padding:6px;
+      border-radius:6px;
+      border:none;
+    }
+    #myToolsContent button {
+      margin-right:6px;
+      cursor:pointer;
+      background:#444;
+      color:#fff;
+    }
+    #myToolsContent button:hover {
+      background:#666;
+    }
   `;
   document.head.appendChild(style);
 
@@ -173,43 +192,82 @@
   });
 
   // ===== Tool Management =====
-  const loadedTools = {}; // track module objects
+  const loadedTools = {};
   let currentTool = null;
 
   async function selectTool(file, button) {
-    // Highlight menu
     menu.querySelectorAll("button").forEach(b => b.classList.remove("active"));
     button.classList.add("active");
-
     content.innerHTML = `<p>Loading ${file}...</p>`;
 
     try {
       const module = await import(repoBase + file + "?v=" + Date.now());
       loadedTools[file] = module.default;
-
       currentTool = file;
 
-      // Show manager
       content.innerHTML = "";
       const toolUI = document.createElement("div");
 
-      // Tool name
       const title = document.createElement("h3");
       title.textContent = module.default.name || file.replace(".js","");
       toolUI.appendChild(title);
 
-      // Run button
-      const runBtn = document.createElement("button");
-      runBtn.textContent = "Run";
-      runBtn.addEventListener("click", () => module.default.action?.());
-      toolUI.appendChild(runBtn);
+      // === Tool1 gets special config UI ===
+      if (file === "tool1.js") {
+        const label1 = document.createElement("label");
+        label1.textContent = "Select Product ID:";
+        toolUI.appendChild(label1);
 
-      // Optional: Stop button
-      if (module.default.stop) {
+        const select = document.createElement("select");
+        const productIds = {
+          "Mutation Component": "61b35fea67433d2dc586f7fe",
+          "Another Product": "1234567890abcdef",
+          "Third Product": "abcdef1234567890"
+        };
+        for (let [name, id] of Object.entries(productIds)) {
+          const opt = document.createElement("option");
+          opt.value = id;
+          opt.textContent = name;
+          select.appendChild(opt);
+        }
+        toolUI.appendChild(select);
+
+        const label2 = document.createElement("label");
+        label2.textContent = "Price Threshold:";
+        toolUI.appendChild(label2);
+
+        const input = document.createElement("input");
+        input.type = "number";
+        input.value = 1700;
+        toolUI.appendChild(input);
+
+        const runBtn = document.createElement("button");
+        runBtn.textContent = "Run Tool1";
+        runBtn.addEventListener("click", () => {
+          module.default.action({
+            itemId: select.value,
+            priceThreshold: parseInt(input.value, 10)
+          });
+        });
+        toolUI.appendChild(runBtn);
+
         const stopBtn = document.createElement("button");
         stopBtn.textContent = "Stop";
         stopBtn.addEventListener("click", () => module.default.stop());
         toolUI.appendChild(stopBtn);
+      } else {
+        // === Default UI for other tools ===
+        const runBtn = document.createElement("button");
+        runBtn.textContent = "Run";
+        runBtn.addEventListener("click", () => module.default.action?.());
+        toolUI.appendChild(runBtn);
+
+        if (module.default.stop) {
+          const stopBtn = document.createElement("button");
+          stopBtn.textContent = "Stop";
+          stopBtn.addEventListener("click", () => module.default.stop());
+          toolUI.appendChild(stopBtn);
+        }
       }
 
       content.appendChild(toolUI);
@@ -219,7 +277,6 @@
     }
   }
 
-  // ===== Load Menu =====
   function loadMenu() {
     menu.innerHTML = "";
     for (let file of toolList) {

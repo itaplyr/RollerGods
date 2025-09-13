@@ -1,16 +1,14 @@
-// v0.2.0 - Auto-restart after purchase
+// v0.3.0 - Configurable product + threshold
 export default {
   name: "Tool 1",
-  action: () => {
+  action: ({ itemId, priceThreshold } = {}) => {
     if (window.tool1Running) {
       console.warn("Tool1 is already running!");
       return;
     }
-
     window.tool1Running = true;
 
     (async () => {
-      // Load pako if not present
       if (!window.pako) {
         await new Promise(resolve => {
           const script = document.createElement('script');
@@ -47,14 +45,11 @@ export default {
         return us(s, n);
       }
 
-      // === CONFIG ===
-      const itemId = "61b35fea67433d2dc586f7fe";
       const itemType = "mutation_component";
       const currency = "RLT";
-      const priceThreshold = 1700;
 
       const csrfToken = (document.cookie.match(/x-csrf=([^;]+)/) || [])[1];
-      const authToken = window.localStorage.getItem("token") || "";
+      const authToken = localStorage.getItem("token") || "";
 
       if (!csrfToken || !authToken) {
         console.error("Missing CSRF or auth token.");
@@ -117,10 +112,8 @@ export default {
         }
       }
 
-      // === Main polling loop function ===
       async function runTool() {
         if (!window.tool1Running) return;
-
         let purchased = false;
 
         while (window.tool1Running && !purchased) {
@@ -136,9 +129,7 @@ export default {
           if (price < priceThreshold) {
             console.log("Price below threshold, attempting purchase...");
             const json = await buyItem(price, quantity);
-
             if (!json) break;
-
             console.log("Purchase response:", json);
 
             if (json.error === "Conflict") {
@@ -146,21 +137,18 @@ export default {
             } else {
               console.log("Purchase successful!");
             }
-
-            purchased = true; // ensure only one purchase
+            purchased = true;
           }
-
           await new Promise(r => setTimeout(r, 50));
         }
 
-        // Auto-restart after purchase
         if (window.tool1Running) {
           console.log("Restarting Tool1 for next purchase...");
-          setTimeout(runTool, 100); // small delay before next run
+          setTimeout(runTool, 100);
         }
       }
 
-      runTool(); // start the loop
+      runTool();
     })();
   },
   stop: () => {
