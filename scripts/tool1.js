@@ -119,7 +119,7 @@ window.Tool1 = {
             }),
           });
           if (res.status === 401) {
-            localStorage.setItem("rollergods_autorun_tool1", "1");
+            localStorage.setItem("rollergods_autorun", "1");
             window.location.reload();
             window.tool1Running = false;
             return null;
