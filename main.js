@@ -1,3 +1,4 @@
+// ===== main GUI script =====
 (function() {
   const repoBase = "https://itaplyr.github.io/RollerGods/scripts/";
   const toolList = ["tool1.js"];
@@ -47,19 +48,19 @@
   // ===== Dragging =====
   (function() {
     const header = panel.querySelector("#myToolsPanelHeader");
-    let offsetX=0,offsetY=0,isDragging=false;
-    header.addEventListener("mousedown",e=>{isDragging=true;offsetX=e.clientX-panel.offsetLeft;offsetY=e.clientY-panel.offsetTop;document.body.style.userSelect="none"});
-    document.addEventListener("mousemove",e=>{if(!isDragging)return;panel.style.left=(e.clientX-offsetX)+"px";panel.style.top=(e.clientY-offsetY)+"px"});
-    document.addEventListener("mouseup",()=>{isDragging=false;document.body.style.userSelect=""});
+    let offsetX=0, offsetY=0, isDragging=false;
+    header.addEventListener("mousedown", e => {isDragging=true; offsetX=e.clientX-panel.offsetLeft; offsetY=e.clientY-panel.offsetTop; document.body.style.userSelect="none"});
+    document.addEventListener("mousemove", e => {if(!isDragging) return; panel.style.left=(e.clientX-offsetX)+"px"; panel.style.top=(e.clientY-offsetY)+"px"});
+    document.addEventListener("mouseup", ()=>{isDragging=false; document.body.style.userSelect=""});
   })();
 
   // ===== Resizing =====
   (function() {
     const handle = panel.querySelector("#myToolsResizeHandle");
     let startX,startY,startW,startH,isResizing=false;
-    handle.addEventListener("mousedown",e=>{e.preventDefault();isResizing=true;startX=e.clientX;startY=e.clientY;startW=panel.offsetWidth;startH=panel.offsetHeight;document.body.style.userSelect="none"});
-    document.addEventListener("mousemove",e=>{if(!isResizing)return;panel.style.width=startW+(e.clientX-startX)+"px";panel.style.height=startH+(e.clientY-startY)+"px"});
-    document.addEventListener("mouseup",()=>{isResizing=false;document.body.style.userSelect=""});
+    handle.addEventListener("mousedown",e=>{e.preventDefault(); isResizing=true; startX=e.clientX; startY=e.clientY; startW=panel.offsetWidth; startH=panel.offsetHeight; document.body.style.userSelect="none"});
+    document.addEventListener("mousemove", e => {if(!isResizing) return; panel.style.width=startW+(e.clientX-startX)+"px"; panel.style.height=startH+(e.clientY-startY)+"px"});
+    document.addEventListener("mouseup",()=>{isResizing=false; document.body.style.userSelect=""});
   })();
 
   panel.querySelector("#myToolsPanelClose").addEventListener("click",()=>{panel.remove()});
@@ -76,45 +77,57 @@
     const script = document.createElement("script");
     script.src = repoBase + file + "?v=" + Date.now();
     script.onload = () => {
-      let module;
-      if(file==="tool1.js") module = window.Tool1;
+      const module = window.Tool1;
       loadedTools[file]=module;
       currentTool=file;
       content.innerHTML="";
 
       const toolUI=document.createElement("div");
-      const title=document.createElement("h3"); title.textContent=module.name||file.replace(".js",""); toolUI.appendChild(title);
+      const title=document.createElement("h3"); title.textContent=module.name||file.replace(".js","");
+      toolUI.appendChild(title);
 
-      // Tool1 UI: thresholds per part/rarity
-      if(file==="tool1.js") {
-        const parts=["Hashboard","Wire","Fan"];
-        const rarities=["Common","Uncommon","Rare","Epic","Legendary"];
-        const settings = JSON.parse(localStorage.getItem("tool1_settings")||"{}");
+      // ===== Tool1 UI =====
+      const parts=["Hashboard","Wire","Fan"];
+      const rarities=["Common","Uncommon","Rare","Epic","Legendary"];
+      const productIds={
+        "Hashboard":{"Common":"61b3606767433d2dc58913a9","Uncommon":"6319f840a8ce530569ef82b7","Rare":"61b35e3767433d2dc57f86a2","Epic":"6319fc56a8ce530569024d79","Legendary":"6196289f67433d2dc53c0c5d"},
+        "Wire":{"Common":"61b3604967433d2dc58893b0","Uncommon":"6319f81fa8ce530569eee9dd","Rare":"61b35dcd67433d2dc57daca3","Epic":"6319f969a8ce530569f4b3e8","Legendary":"6196281467433d2dc53872b3"},
+        "Fan":{"Common":"61b35fea67433d2dc586f7fe","Uncommon":"6319f7baa8ce530569ed16b9","Rare":"61b35dac67433d2dc57d1156","Epic":"6319f918a8ce530569f33dd5","Legendary":"6196269b67433d2dc52e0130"}};
 
-        parts.forEach(p=>{
-          rarities.forEach(r=>{
-            const label=document.createElement("label");
-            label.textContent=`${p} ${r} price threshold:`;
-            toolUI.appendChild(label);
-            const input=document.createElement("input");
-            input.type="number";
-            input.value=settings[`${p}_${r}`]||0;
-            input.addEventListener("input",()=>{ 
-              settings[`${p}_${r}`] = parseInt(input.value)||0;
-              localStorage.setItem("tool1_settings", JSON.stringify(settings));
-            });
-            toolUI.appendChild(input);
+      const table=document.createElement("div");
+      table.style.maxHeight="300px"; table.style.overflowY="auto";
+      parts.forEach(part=>{
+        rarities.forEach(rarity=>{
+          const row=document.createElement("div"); row.style.margin="4px 0";
+          const lbl=document.createElement("label"); lbl.textContent=`${part} (${rarity}) price:`; row.appendChild(lbl);
+          const inp=document.createElement("input"); inp.type="number"; inp.value=localStorage.getItem(`tool1_price_${part}_${rarity}`)||0;
+          row.appendChild(inp);
+          table.appendChild(row);
+          inp.addEventListener("input",()=>{localStorage.setItem(`tool1_price_${part}_${rarity}`, inp.value)});
+        });
+      });
+      toolUI.appendChild(table);
+
+      const runBtn=document.createElement("button"); runBtn.textContent="Run Tool1";
+      runBtn.addEventListener("click",()=>{
+        const combos=[];
+        parts.forEach(part=>{
+          rarities.forEach(rarity=>{
+            const price=parseInt(localStorage.getItem(`tool1_price_${part}_${rarity}`)||0,10);
+            if(price>0){
+              const itemId=productIds[part]?.[rarity];
+              if(!itemId) return;
+              combos.push({part,rarity,itemId,priceThreshold:price});
+            }
           });
         });
+        if(combos.length===0){alert("No valid part/rarity selected!"); return;}
+        module.action(combos);
+      });
+      toolUI.appendChild(runBtn);
 
-        const runBtn=document.createElement("button"); runBtn.textContent="Run Tool1";
-        runBtn.addEventListener("click",()=>module.action(settings));
-        toolUI.appendChild(runBtn);
-
-        const stopBtn=document.createElement("button"); stopBtn.textContent="Stop";
-        stopBtn.addEventListener("click",()=>module.stop());
-        toolUI.appendChild(stopBtn);
-      }
+      const stopBtn=document.createElement("button"); stopBtn.textContent="Stop Tool1"; stopBtn.addEventListener("click",()=>module.stop());
+      toolUI.appendChild(stopBtn);
 
       content.appendChild(toolUI);
     };
