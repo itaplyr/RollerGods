@@ -94,14 +94,16 @@ window.Tool1 = {
 
       async function getFirstOffer() {
         try {
-          const tradeOffers = await fetchTradeOffers();
-          const offers = gs(tradeOffers);
-          return offers[0] || null;
+            const tradeOffers = await fetchTradeOffers();
+            if (!tradeOffers) return null; // <-- handle missing data
+            const offers = gs(tradeOffers);
+            return offers[0] || null;
         } catch (err) {
-          console.error("Error decoding tradeOffers:", err);
-          return null;
+            console.error("Error decoding tradeOffers:", err);
+            return null;
         }
       }
+
 
       async function buyItem(price, quantity) {
         try {
