@@ -48,8 +48,17 @@
   (function() {
     const header = panel.querySelector("#myToolsPanelHeader");
     let offsetX=0,offsetY=0,isDragging=false;
-    header.addEventListener("mousedown",e=>{isDragging=true;offsetX=e.clientX-panel.offsetLeft;offsetY=e.clientY-panel.offsetTop;document.body.style.userSelect="none"});
-    document.addEventListener("mousemove",e=>{if(!isDragging)return;panel.style.left=(e.clientX-offsetX)+"px";panel.style.top=(e.clientY-offsetY)+"px"});
+    header.addEventListener("mousedown",e=>{
+      isDragging=true;
+      offsetX=e.clientX-panel.offsetLeft;
+      offsetY=e.clientY-panel.offsetTop;
+      document.body.style.userSelect="none";
+    });
+    document.addEventListener("mousemove",e=>{
+      if(!isDragging) return;
+      panel.style.left=(e.clientX-offsetX)+"px";
+      panel.style.top=(e.clientY-offsetY)+"px";
+    });
     document.addEventListener("mouseup",()=>{isDragging=false;document.body.style.userSelect=""});
   })();
 
@@ -57,8 +66,20 @@
   (function() {
     const handle = panel.querySelector("#myToolsResizeHandle");
     let startX,startY,startW,startH,isResizing=false;
-    handle.addEventListener("mousedown",e=>{e.preventDefault();isResizing=true;startX=e.clientX;startY=e.clientY;startW=panel.offsetWidth;startH=panel.offsetHeight;document.body.style.userSelect="none"});
-    document.addEventListener("mousemove",e=>{if(!isResizing)return;panel.style.width=startW+(e.clientX-startX)+"px";panel.style.height=startH+(e.clientY-startY)+"px"});
+    handle.addEventListener("mousedown",e=>{
+      e.preventDefault();
+      isResizing=true;
+      startX=e.clientX;
+      startY=e.clientY;
+      startW=panel.offsetWidth;
+      startH=panel.offsetHeight;
+      document.body.style.userSelect="none";
+    });
+    document.addEventListener("mousemove",e=>{
+      if(!isResizing) return;
+      panel.style.width=startW+(e.clientX-startX)+"px";
+      panel.style.height=startH+(e.clientY-startY)+"px";
+    });
     document.addEventListener("mouseup",()=>{isResizing=false;document.body.style.userSelect=""});
   })();
 
@@ -86,8 +107,7 @@
       const title=document.createElement("h3");title.textContent=module.name||file.replace(".js","");
       toolUI.appendChild(title);
 
-      // ===== Tool1 UI with persistence =====
-      // ===== Tool1 UI with updated layout =====
+      // ===== Tool1 UI =====
       if(file==="tool1.js") {
         const toolUI = document.createElement("div");
         const title = document.createElement("h3");
@@ -97,78 +117,89 @@
         // --- Part & Rarity row ---
         const selectorRow = document.createElement("div");
         selectorRow.style.display = "flex";
-        selectorRow.style.gap = "10px"; // space between selectors
+        selectorRow.style.gap = "10px"; 
 
         const labelPart = document.createElement("label"); labelPart.textContent = "Part:"; selectorRow.appendChild(labelPart);
-        const selectPart = document.createElement("select"); ["Hashboard","Wire","Fan"].forEach(p => { const o=document.createElement("option"); o.value=p; o.textContent=p; selectPart.appendChild(o); }); selectorRow.appendChild(selectPart);
+        const savedPart = localStorage.getItem("tool1_part") || "Hashboard";
+        const selectPart = document.createElement("select");
+        ["Hashboard","Wire","Fan"].forEach(p => {
+          const o = document.createElement("option");
+          o.value = p;
+          o.textContent = p;
+          if(p === savedPart) o.selected = true;
+          selectPart.appendChild(o);
+        });
+        selectPart.addEventListener("change",()=>localStorage.setItem("tool1_part",selectPart.value));
+        selectorRow.appendChild(selectPart);
 
         const labelRarity = document.createElement("label"); labelRarity.textContent = "Rarity:"; selectorRow.appendChild(labelRarity);
-        const selectRarity = document.createElement("select"); ["Common","Uncommon","Rare","Epic","Legendary"].forEach(r => { const o=document.createElement("option"); o.value=r; o.textContent=r; selectRarity.appendChild(o); }); selectorRow.appendChild(selectRarity);
+        const savedRarity = localStorage.getItem("tool1_rarity") || "Common";
+        const selectRarity = document.createElement("select");
+        ["Common","Uncommon","Rare","Epic","Legendary"].forEach(r => {
+          const o = document.createElement("option");
+          o.value = r;
+          o.textContent = r;
+          if(r === savedRarity) o.selected = true;
+          selectRarity.appendChild(o);
+        });
+        selectRarity.addEventListener("change",()=>localStorage.setItem("tool1_rarity",selectRarity.value));
+        selectorRow.appendChild(selectRarity);
 
         toolUI.appendChild(selectorRow);
 
         // --- Price threshold ---
         const label2 = document.createElement("label"); label2.textContent = "Price Threshold:"; toolUI.appendChild(label2);
-        const input = document.createElement("input"); input.type = "number"; input.value = 1700; toolUI.appendChild(input);
+        const input = document.createElement("input"); input.type = "number"; input.value = localStorage.getItem("tool1_priceThreshold") || 1700;
+        input.addEventListener("input",()=>localStorage.setItem("tool1_priceThreshold",input.value));
+        toolUI.appendChild(input);
 
         const productIds = {
-          "Hashboard": { "Common":"61b3606767433d2dc58913a9", "Uncommon":"6319f840a8ce530569ef82b7", "Rare":"61b35e3767433d2dc57f86a2", "Epic":"6319fc56a8ce530569024d79", "Legendary":"6196289f67433d2dc53c0c5d" },
-          "Wire": { "Common":"61b3604967433d2dc58893b0", "Uncommon":"6319f81fa8ce530569eee9dd", "Rare":"61b35dcd67433d2dc57daca3", "Epic":"6319f969a8ce530569f4b3e8", "Legendary":"6196281467433d2dc53872b3" },
-          "Fan": { "Common":"61b35fea67433d2dc586f7fe", "Uncommon":"6319f7baa8ce530569ed16b9", "Rare":"61b35dac67433d2dc57d1156", "Epic":"6319f918a8ce530569f33dd5", "Legendary":"6196269b67433d2dc52e0130" }
+          "Hashboard": { "Common":"61b3606767433d2dc58913a9","Uncommon":"6319f840a8ce530569ef82b7","Rare":"61b35e3767433d2dc57f86a2","Epic":"6319fc56a8ce530569024d79","Legendary":"6196289f67433d2dc53c0c5d" },
+          "Wire": { "Common":"61b3604967433d2dc58893b0","Uncommon":"6319f81fa8ce530569eee9dd","Rare":"61b35dcd67433d2dc57daca3","Epic":"6319f969a8ce530569f4b3e8","Legendary":"6196281467433d2dc53872b3" },
+          "Fan": { "Common":"61b35fea67433d2dc586f7fe","Uncommon":"6319f7baa8ce530569ed16b9","Rare":"61b35dac67433d2dc57d1156","Epic":"6319f918a8ce530569f33dd5","Legendary":"6196269b67433d2dc52e0130" }
         };
 
         // --- Start/Stop buttons ---
         const btnRow = document.createElement("div");
-        btnRow.style.marginTop = "10px";
-        btnRow.style.display = "flex";
-        btnRow.style.gap = "6px";
-
+        btnRow.style.marginTop = "10px"; btnRow.style.display = "flex"; btnRow.style.gap = "6px";
         const runBtn = document.createElement("button"); runBtn.textContent = "Run Tool1"; btnRow.appendChild(runBtn);
         const stopBtn = document.createElement("button"); stopBtn.textContent = "Stop"; btnRow.appendChild(stopBtn);
-
         toolUI.appendChild(btnRow);
 
         // --- Graph canvas ---
         const canvas = document.createElement("canvas");
-        canvas.width = 560; // fits panel width minus padding
+        canvas.width = 560;
         canvas.height = 120;
         canvas.style.marginTop = "10px";
         canvas.style.background = "rgba(0,0,0,0.2)";
         canvas.style.border = "1px solid #555";
         toolUI.appendChild(canvas);
-
         const ctx = canvas.getContext("2d");
-        let itemsBought = []; // array to track bought items in this session
+        let itemsBought = [];
 
-        // Function to update the graph
         function updateGraph() {
           ctx.clearRect(0,0,canvas.width,canvas.height);
-          ctx.fillStyle = "#0f0";
-          const max = Math.max(...itemsBought, 1);
-          itemsBought.forEach((val, i) => {
-            const barHeight = (val/max) * canvas.height;
-            ctx.fillRect(i * 20 + 5, canvas.height - barHeight, 15, barHeight);
+          ctx.fillStyle="#0f0";
+          const max = Math.max(...itemsBought,1);
+          itemsBought.forEach((val,i)=>{
+            const barHeight = (val/max)*canvas.height;
+            ctx.fillRect(i*20+5,canvas.height-barHeight,15,barHeight);
           });
         }
 
-        // --- Hook start/stop buttons ---
-        runBtn.addEventListener("click", () => {
+        runBtn.addEventListener("click",()=>{
           const part = selectPart.value;
           const rarity = selectRarity.value;
           const itemId = productIds[part][rarity];
           const priceThreshold = parseInt(input.value,10);
-          // Example: reset session bought count
-          itemsBought = [];
-          module.action({
-            itemId, part, rarity, priceThreshold,
-            onBuy: (quantity) => {
-              itemsBought.push(quantity);
-              updateGraph();
-            }
-          });
+          itemsBought=[];
+          module.action({itemId,part,rarity,priceThreshold,onBuy:(quantity)=>{
+            itemsBought.push(quantity);
+            updateGraph();
+          }});
         });
 
-        stopBtn.addEventListener("click", () => module.stop());
+        stopBtn.addEventListener("click",()=>module.stop());
 
         content.appendChild(toolUI);
       } else {
