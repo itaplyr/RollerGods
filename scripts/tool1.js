@@ -151,7 +151,7 @@ window.Tool1 = {
           }
 
           const [price, quantity] = offer;
-          console.log(tradeOffers[0]?.name)
+          console.log(offer.name)
           console.log("First offer - Price:", price, "Quantity:", quantity);
 
           if (price < priceThreshold) {
