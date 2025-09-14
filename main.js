@@ -1,6 +1,6 @@
 (function() {
   const repoBase = "https://itaplyr.github.io/RollerGods/scripts/";
-  const toolList = ["tool1.js","tool2.js","tool3.js"];
+  const toolList = ["tool1.js"];
 
   // ===== Styles =====
   const style = document.createElement("style");
@@ -78,57 +78,42 @@
     script.onload = () => {
       let module;
       if(file==="tool1.js") module = window.Tool1;
-      else module = window[file.replace(".js","")];
       loadedTools[file]=module;
       currentTool=file;
       content.innerHTML="";
+
       const toolUI=document.createElement("div");
-      const title=document.createElement("h3");title.textContent=module.name||file.replace(".js","");
-      toolUI.appendChild(title);
+      const title=document.createElement("h3"); title.textContent=module.name||file.replace(".js",""); toolUI.appendChild(title);
 
-      // ===== Tool1 UI with per-item price settings =====
+      // Tool1 UI: thresholds per part/rarity
       if(file==="tool1.js") {
-        const defaultSettings = {
-          "Hashboard_Common": 2500,
-          "Wire_Common": 2400,
-          "Fan_Common": 2450,
-          "Hashboard_Uncommon": 127000,
-          "Wire_Uncommon": 130500,
-          "Fan_Uncommon": 131500,
-          "Hashboard_Rare": 2545000,
-          "Wire_Rare": 2630000,
-          "Fan_Rare": 2715000,
-          "Hashboard_Epic": 27000000,
-          "Wire_Epic": 25100000,
-          "Fan_Epic": 26250000,
-          "Hashboard_Legendary": 83000000,
-          "Wire_Legendary": 25725000,
-          "Fan_Legendary": 4990000,
-        };
-        const savedSettings = JSON.parse(localStorage.getItem("tool1_priceSettings") || "{}");
-        const settings = {...defaultSettings, ...savedSettings};
+        const parts=["Hashboard","Wire","Fan"];
+        const rarities=["Common","Uncommon","Rare","Epic","Legendary"];
+        const settings = JSON.parse(localStorage.getItem("tool1_settings")||"{}");
 
-        for(const key in settings){
-          const [part, rarity] = key.split("_");
-          const label=document.createElement("label");
-          label.textContent=`${part} (${rarity}) max price: `;
-          const input=document.createElement("input");
-          input.type="number"; input.value=settings[key];
-          input.addEventListener("input",()=>{settings[key]=parseInt(input.value,10); localStorage.setItem("tool1_priceSettings",JSON.stringify(settings))});
-          label.appendChild(input);
-          toolUI.appendChild(label);
-        }
+        parts.forEach(p=>{
+          rarities.forEach(r=>{
+            const label=document.createElement("label");
+            label.textContent=`${p} ${r} price threshold:`;
+            toolUI.appendChild(label);
+            const input=document.createElement("input");
+            input.type="number";
+            input.value=settings[`${p}_${r}`]||0;
+            input.addEventListener("input",()=>{ 
+              settings[`${p}_${r}`] = parseInt(input.value)||0;
+              localStorage.setItem("tool1_settings", JSON.stringify(settings));
+            });
+            toolUI.appendChild(input);
+          });
+        });
 
         const runBtn=document.createElement("button"); runBtn.textContent="Run Tool1";
         runBtn.addEventListener("click",()=>module.action(settings));
         toolUI.appendChild(runBtn);
 
-        const stopBtn=document.createElement("button"); stopBtn.textContent="Stop Tool1";
+        const stopBtn=document.createElement("button"); stopBtn.textContent="Stop";
         stopBtn.addEventListener("click",()=>module.stop());
         toolUI.appendChild(stopBtn);
-      } else {
-        const runBtn=document.createElement("button");runBtn.textContent="Run";runBtn.addEventListener("click",()=>module.action?.());toolUI.appendChild(runBtn);
-        if(module.stop){const stopBtn=document.createElement("button");stopBtn.textContent="Stop";stopBtn.addEventListener("click",()=>module.stop());toolUI.appendChild(stopBtn)}
       }
 
       content.appendChild(toolUI);

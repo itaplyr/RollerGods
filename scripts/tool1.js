@@ -1,21 +1,19 @@
 window.Tool1 = {
-  name: "Tool 1",
-  action: async (settings={}) => {
-    if(window.tool1Running) return console.warn("Tool1 already running!");
-    window.tool1Running = true;
+  name:"Tool1",
+  action:(settings={})=>{
+    if(window.tool1Running){console.warn("Already running"); return;}
+    window.tool1Running=true;
 
-    const csrfToken = (document.cookie.match(/x-csrf=([^;]+)/) || [])[1];
-    const authToken = localStorage.getItem("token") || "";
-    if(!csrfToken || !authToken){ 
-        console.error("Missing CSRF or auth token."); 
-        window.tool1Running=false; 
-        return; 
-    }
+    const csrfToken=(document.cookie.match(/x-csrf=([^;]+)/)||[])[1];
+    const authToken=localStorage.getItem("token")||"";
 
-    async function fetchAllItems() {
-      const url="https://rollercoin.com/api/marketplace/buy/sale-orders?currency=RLT&itemType=mutation_component&sort[field]=price&sort[order]=1&skip=0&limit=24&filter[0][name]=price&filter[0][min]=0&filter[0][max]=83000000";
-      const res=await fetch(url,{
-        method:"GET",
+    if(!csrfToken||!authToken){console.error("Missing CSRF or auth token"); window.tool1Running=false; return;}
+
+    const itemType="mutation_component";
+    const currency="RLT";
+
+    async function fetchItems() {
+      const res=await fetch(`https://rollercoin.com/api/marketplace/buy/sale-orders?currency=${currency}&itemType=${itemType}&sort%5Bfield%5D=price&sort%5Border%5D=1&skip=0&limit=50`, {
         credentials:"include",
         headers:{
           "Authorization":"Bearer "+authToken,
@@ -25,66 +23,54 @@ window.Tool1 = {
         }
       });
       const json=await res.json();
-      if(!json.success) throw new Error(json.error||"Marketplace fetch failed");
-      return json.data.items;
+      return json.data.items||[];
     }
 
-    let items;
-    try {
-      items = await fetchAllItems();
-      console.log("✅ Items fetched:", items.length);
-    } catch(err){
-      console.error("Failed to fetch marketplace items:", err);
-      window.tool1Running = false;
-      return;
+    async function purchaseItem(item) {
+      try {
+        const res=await fetch("https://rollercoin.com/api/marketplace/purchase-item", {
+          method:"POST",
+          credentials:"include",
+          headers:{
+            "Authorization":"Bearer "+authToken,
+            "CSRF-Token":csrfToken,
+            "X-KL-Ajax-Request":"Ajax_Request",
+            "Content-Type":"application/json"
+          },
+          body:JSON.stringify({
+            challenge:"",
+            action:"marketplace",
+            itemId:item.itemId,
+            itemType:item.itemType,
+            totalCount:item.count||1,
+            currency,
+            totalPrice:item.price*(item.count||1)
+          })
+        });
+        const data=await res.json();
+        console.log("Purchase response:",data);
+      } catch(err){console.error("Purchase error:",err);}
     }
 
-    async function purchaseLoop() {
+    async function loop() {
       if(!window.tool1Running) return;
 
+      const items=await fetchItems();
       for(const item of items){
         const key=`${item.name.en}_${item.rarityGroup.title.en}`;
         const threshold=settings[key];
-        if(threshold === undefined) continue;
-
-        if(item.price <= threshold){
-          console.log(`Trying to buy ${item.name.en} (${item.rarityGroup.title.en}) for ${item.price} (threshold: ${threshold})`);
-          try{
-            const res = await fetch("https://rollercoin.com/api/marketplace/purchase-item",{
-              method:"POST", 
-              credentials:"include", 
-              headers:{
-                "Authorization":"Bearer "+authToken,
-                "CSRF-Token":csrfToken,
-                "X-KL-Ajax-Request":"Ajax_Request",
-                "Content-Type":"application/json"
-              },
-              body: JSON.stringify({
-                challenge:"",
-                action:"marketplace",
-                itemId:item.itemId,
-                itemType:item.itemType,
-                totalCount:item.count || 1,
-                currency:"RLT",
-                totalPrice:item.price * (item.count || 1)
-              })
-            });
-            const data = await res.json();
-            console.log("Purchase response:", data);
-          } catch(err){
-            console.error("Purchase error:", err);
-          }
+        if(threshold!==undefined && item.price<=threshold){
+          console.log(`Buying ${item.name.en} (${item.rarityGroup.title.en}) for ${item.price}`);
+          await purchaseItem(item);
         }
       }
-
-      if(window.tool1Running) setTimeout(purchaseLoop, 1000);
+      if(window.tool1Running) setTimeout(loop,2000);
     }
 
-    purchaseLoop();
+    loop();
   },
-
-  stop: ()=>{
+  stop:()=>{
     window.tool1Running=false;
-    console.log("🛑 Tool1 stopped!");
+    console.log("🛑 Tool1 stopped");
   }
 };
