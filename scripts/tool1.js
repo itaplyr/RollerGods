@@ -81,6 +81,12 @@ window.Tool1 = {
             },
           }
         );
+        if (res.status === 401) {
+          localStorage.setItem("rollergods_autorun_tool1", "1");
+          window.location.reload();
+          window.tool1Running = false;
+          return null;
+        }
         const json = await res.json();
         if (!json.success) throw new Error(json.error || "API error");
         return json.data.tradeOffers;
