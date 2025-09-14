@@ -1,5 +1,5 @@
-// tool1.js
-window.Tool1 = {
+// v0.3.1 - Configurable product + threshold + restart + save config
+export default {
   name: "Tool 1",
   action: ({ itemId, priceThreshold } = {}) => {
     if (window.tool1Running) {
@@ -8,11 +8,12 @@ window.Tool1 = {
     }
     window.tool1Running = true;
 
+    // save config for next run
     if (itemId) localStorage.setItem("tool1_itemId", itemId);
     if (priceThreshold) localStorage.setItem("tool1_priceThreshold", priceThreshold);
 
     (async () => {
-      // Load pako if missing
+      // load pako if missing
       if (!window.pako) {
         await new Promise(resolve => {
           const script = document.createElement("script");
