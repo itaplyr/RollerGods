@@ -1,7 +1,6 @@
-// ===== main GUI script =====
 (function() {
   const repoBase = "https://itaplyr.github.io/RollerGods/scripts/";
-  const toolList = ["tool1.js"];
+  const toolList = ["tool1.js","tool2.js","tool3.js"];
 
   // ===== Styles =====
   const style = document.createElement("style");
@@ -48,19 +47,19 @@
   // ===== Dragging =====
   (function() {
     const header = panel.querySelector("#myToolsPanelHeader");
-    let offsetX=0, offsetY=0, isDragging=false;
-    header.addEventListener("mousedown", e => {isDragging=true; offsetX=e.clientX-panel.offsetLeft; offsetY=e.clientY-panel.offsetTop; document.body.style.userSelect="none"});
-    document.addEventListener("mousemove", e => {if(!isDragging) return; panel.style.left=(e.clientX-offsetX)+"px"; panel.style.top=(e.clientY-offsetY)+"px"});
-    document.addEventListener("mouseup", ()=>{isDragging=false; document.body.style.userSelect=""});
+    let offsetX=0,offsetY=0,isDragging=false;
+    header.addEventListener("mousedown",e=>{isDragging=true;offsetX=e.clientX-panel.offsetLeft;offsetY=e.clientY-panel.offsetTop;document.body.style.userSelect="none"});
+    document.addEventListener("mousemove",e=>{if(!isDragging)return;panel.style.left=(e.clientX-offsetX)+"px";panel.style.top=(e.clientY-offsetY)+"px"});
+    document.addEventListener("mouseup",()=>{isDragging=false;document.body.style.userSelect=""});
   })();
 
   // ===== Resizing =====
   (function() {
     const handle = panel.querySelector("#myToolsResizeHandle");
     let startX,startY,startW,startH,isResizing=false;
-    handle.addEventListener("mousedown",e=>{e.preventDefault(); isResizing=true; startX=e.clientX; startY=e.clientY; startW=panel.offsetWidth; startH=panel.offsetHeight; document.body.style.userSelect="none"});
-    document.addEventListener("mousemove", e => {if(!isResizing) return; panel.style.width=startW+(e.clientX-startX)+"px"; panel.style.height=startH+(e.clientY-startY)+"px"});
-    document.addEventListener("mouseup",()=>{isResizing=false; document.body.style.userSelect=""});
+    handle.addEventListener("mousedown",e=>{e.preventDefault();isResizing=true;startX=e.clientX;startY=e.clientY;startW=panel.offsetWidth;startH=panel.offsetHeight;document.body.style.userSelect="none"});
+    document.addEventListener("mousemove",e=>{if(!isResizing)return;panel.style.width=startW+(e.clientX-startX)+"px";panel.style.height=startH+(e.clientY-startY)+"px"});
+    document.addEventListener("mouseup",()=>{isResizing=false;document.body.style.userSelect=""});
   })();
 
   panel.querySelector("#myToolsPanelClose").addEventListener("click",()=>{panel.remove()});
@@ -77,57 +76,76 @@
     const script = document.createElement("script");
     script.src = repoBase + file + "?v=" + Date.now();
     script.onload = () => {
-      const module = window.Tool1;
+      let module;
+      if(file==="tool1.js") module = window.Tool1;
+      else module = window[file.replace(".js","")];
       loadedTools[file]=module;
       currentTool=file;
       content.innerHTML="";
-
       const toolUI=document.createElement("div");
-      const title=document.createElement("h3"); title.textContent=module.name||file.replace(".js","");
+      const title=document.createElement("h3");title.textContent=module.name||file.replace(".js","");
       toolUI.appendChild(title);
 
-      // ===== Tool1 UI =====
-      const parts=["Hashboard","Wire","Fan"];
-      const rarities=["Common","Uncommon","Rare","Epic","Legendary"];
-      const productIds={
-        "Hashboard":{"Common":"61b3606767433d2dc58913a9","Uncommon":"6319f840a8ce530569ef82b7","Rare":"61b35e3767433d2dc57f86a2","Epic":"6319fc56a8ce530569024d79","Legendary":"6196289f67433d2dc53c0c5d"},
-        "Wire":{"Common":"61b3604967433d2dc58893b0","Uncommon":"6319f81fa8ce530569eee9dd","Rare":"61b35dcd67433d2dc57daca3","Epic":"6319f969a8ce530569f4b3e8","Legendary":"6196281467433d2dc53872b3"},
-        "Fan":{"Common":"61b35fea67433d2dc586f7fe","Uncommon":"6319f7baa8ce530569ed16b9","Rare":"61b35dac67433d2dc57d1156","Epic":"6319f918a8ce530569f33dd5","Legendary":"6196269b67433d2dc52e0130"}};
+      // ===== Tool1 UI with persistence =====
+      if(file==="tool1.js") {
+        const labelPart=document.createElement("label");labelPart.textContent="Select Part:";toolUI.appendChild(labelPart);
+        const selectPart=document.createElement("select");["Hashboard","Wire","Fan"].forEach(p=>{const o=document.createElement("option");o.value=p;o.textContent=p;selectPart.appendChild(o)});toolUI.appendChild(selectPart);
 
-      const table=document.createElement("div");
-      table.style.maxHeight="300px"; table.style.overflowY="auto";
-      parts.forEach(part=>{
-        rarities.forEach(rarity=>{
-          const row=document.createElement("div"); row.style.margin="4px 0";
-          const lbl=document.createElement("label"); lbl.textContent=`${part} (${rarity}) price:`; row.appendChild(lbl);
-          const inp=document.createElement("input"); inp.type="number"; inp.value=localStorage.getItem(`tool1_price_${part}_${rarity}`)||0;
-          row.appendChild(inp);
-          table.appendChild(row);
-          inp.addEventListener("input",()=>{localStorage.setItem(`tool1_price_${part}_${rarity}`, inp.value)});
-        });
-      });
-      toolUI.appendChild(table);
+        const labelRarity=document.createElement("label");labelRarity.textContent="Select Rarity:";toolUI.appendChild(labelRarity);
+        const selectRarity=document.createElement("select");["Common","Uncommon","Rare","Epic","Legendary"].forEach(r=>{const o=document.createElement("option");o.value=r;o.textContent=r;selectRarity.appendChild(o)});toolUI.appendChild(selectRarity);
 
-      const runBtn=document.createElement("button"); runBtn.textContent="Run Tool1";
-      runBtn.addEventListener("click",()=>{
-        const combos=[];
-        parts.forEach(part=>{
-          rarities.forEach(rarity=>{
-            const price=parseInt(localStorage.getItem(`tool1_price_${part}_${rarity}`)||0,10);
-            if(price>0){
-              const itemId=productIds[part]?.[rarity];
-              if(!itemId) return;
-              combos.push({part,rarity,itemId,priceThreshold:price});
-            }
-          });
-        });
-        if(combos.length===0){alert("No valid part/rarity selected!"); return;}
-        module.action(combos);
-      });
-      toolUI.appendChild(runBtn);
+        const productIds={
+          "Hashboard":{"Common":"61b3606767433d2dc58913a9","Uncommon":"6319f840a8ce530569ef82b7","Rare":"61b35e3767433d2dc57f86a2","Epic":"6319fc56a8ce530569024d79","Legendary":"6196289f67433d2dc53c0c5d"},
+          "Wire":{"Common":"61b3604967433d2dc58893b0","Uncommon":"6319f81fa8ce530569eee9dd","Rare":"61b35dcd67433d2dc57daca3","Epic":"6319f969a8ce530569f4b3e8","Legendary":"6196281467433d2dc53872b3"},
+          "Fan":{"Common":"61b35fea67433d2dc586f7fe","Uncommon":"6319f7baa8ce530569ed16b9","Rare":"61b35dac67433d2dc57d1156","Epic":"6319f918a8ce530569f33dd5","Legendary":"6196269b67433d2dc52e0130"}};
 
-      const stopBtn=document.createElement("button"); stopBtn.textContent="Stop Tool1"; stopBtn.addEventListener("click",()=>module.stop());
-      toolUI.appendChild(stopBtn);
+        const label2=document.createElement("label");label2.textContent="Price Threshold:";toolUI.appendChild(label2);
+        const input=document.createElement("input");input.type="number";input.value=1700;toolUI.appendChild(input);
+
+        // === Persistence logic ===
+        const saveSettings = () => {
+          localStorage.setItem("tool1_part", selectPart.value);
+          localStorage.setItem("tool1_rarity", selectRarity.value);
+          localStorage.setItem("tool1_priceThreshold", input.value);
+          const itemId = productIds[selectPart.value][selectRarity.value];
+          localStorage.setItem("tool1_itemId", itemId);
+        };
+
+        // Restore saved settings
+        const savedPart = localStorage.getItem("tool1_part");
+        const savedRarity = localStorage.getItem("tool1_rarity");
+        const savedThreshold = localStorage.getItem("tool1_priceThreshold");
+
+        if (savedPart && selectPart.querySelector(`option[value="${savedPart}"]`)) {
+          selectPart.value = savedPart;
+        }
+        if (savedRarity && selectRarity.querySelector(`option[value="${savedRarity}"]`)) {
+          selectRarity.value = savedRarity;
+        }
+        if (savedThreshold) {
+          input.value = savedThreshold;
+        }
+
+        selectPart.addEventListener("change", saveSettings);
+        selectRarity.addEventListener("change", saveSettings);
+        input.addEventListener("input", saveSettings);
+
+        const runBtn=document.createElement("button");runBtn.textContent="Run Tool1";
+        runBtn.addEventListener("click",()=>{const part=selectPart.value;const rarity=selectRarity.value;const itemId=productIds[part][rarity];const priceThreshold=parseInt(input.value,10);saveSettings();module.action({itemId,part,rarity,priceThreshold})});
+        toolUI.appendChild(runBtn);
+
+        const stopBtn=document.createElement("button");stopBtn.textContent="Stop";stopBtn.addEventListener("click",()=>module.stop());toolUI.appendChild(stopBtn);
+
+        // Optional: autorun last settings
+        if (localStorage.getItem("rollergods_autorun_tool1") === "true") {
+          setTimeout(() => runBtn.click(), 1500);
+        }
+
+      } else {
+        // ===== Generic tools =====
+        const runBtn=document.createElement("button");runBtn.textContent="Run";runBtn.addEventListener("click",()=>module.action?.());toolUI.appendChild(runBtn);
+        if(module.stop){const stopBtn=document.createElement("button");stopBtn.textContent="Stop";stopBtn.addEventListener("click",()=>module.stop());toolUI.appendChild(stopBtn)}
+      }
 
       content.appendChild(toolUI);
     };

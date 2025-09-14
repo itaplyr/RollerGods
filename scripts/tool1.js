@@ -1,3 +1,4 @@
+// tool1.js
 window.Tool1 = {
   name: "Tool 1",
   action: ({ itemId, priceThreshold } = {}) => {
@@ -7,16 +8,55 @@ window.Tool1 = {
     }
     window.tool1Running = true;
 
-    if (!itemId) {
-      console.error("Item ID is required!");
-      window.tool1Running = false;
-      return;
-    }
-
-    if (priceThreshold != null) localStorage.setItem("tool1_priceThreshold", priceThreshold);
-    localStorage.setItem("tool1_itemId", itemId);
+    if (itemId) localStorage.setItem("tool1_itemId", itemId);
+    if (priceThreshold) localStorage.setItem("tool1_priceThreshold", priceThreshold);
 
     (async () => {
+      // Load pako if missing
+      if (!window.pako) {
+        await new Promise(resolve => {
+          const script = document.createElement("script");
+          script.src = "https://cdn.jsdelivr.net/npm/pako@2.1.0/dist/pako.min.js";
+          script.onload = resolve;
+          document.head.appendChild(script);
+        });
+      }
+
+      // === decoding helpers ===
+      function os(t) { return Uint8Array.from(atob(t), c => c.charCodeAt(0)); }
+      function ds(t) {
+        const c = new DataView(t.buffer);
+        let a = 0;
+        const s = c.getUint16(a); a += 2;
+        const n = Number(c.getBigUint64(a)); a += 8;
+        const l = [];
+        for (let r = 0; r < s; r++) {
+          const o = c.getUint32(a); a += 4;
+          const i = c.getUint32(a); a += 4;
+          l.push([o, i]);
+        }
+        return [l, n];
+      }
+      function us(t, c) {
+        let a = c;
+        const s = [];
+        for (const [n, l] of t) {
+          a += n;
+          if (l !== 0) s.push([a, l]);
+        }
+        return s;
+      }
+      function gs(t) {
+        const c = os(t);
+        const a = window.pako.inflate(c);
+        const [s, n] = ds(a);
+        return us(s, n);
+      }
+
+      // === config ===
+      const itemType = "mutation_component";
+      const currency = "RLT";
+
       const csrfToken = (document.cookie.match(/x-csrf=([^;]+)/) || [])[1];
       const authToken = localStorage.getItem("token") || "";
 
@@ -26,29 +66,34 @@ window.Tool1 = {
         return;
       }
 
-      const itemType = "mutation_component";
-      const currency = "RLT";
+      // === API helpers ===
+      async function fetchTradeOffers() {
+        const res = await fetch(
+          `https://rollercoin.com/api/marketplace/item-info?itemId=${itemId}&itemType=${itemType}&currency=${currency}`,
+          {
+            method: "GET",
+            credentials: "include",
+            headers: {
+              "Authorization": "Bearer " + authToken,
+              "CSRF-Token": csrfToken,
+              "X-KL-Ajax-Request": "Ajax_Request",
+              "Accept": "application/json",
+            },
+          }
+        );
+        const json = await res.json();
+        if (!json.success) throw new Error(json.error || "API error");
+        return json.data.tradeOffers;
+      }
 
-      async function fetchOffers() {
+      async function getFirstOffer() {
         try {
-          const res = await fetch(
-            `https://rollercoin.com/api/marketplace/buy/sale-orders?currency=${currency}&itemType=${itemType}&sort[field]=price&sort[order]=1&skip=0&limit=24&filter[0][name]=price&filter[0][min]=0&filter[0][max]=83000000`,
-            {
-              credentials: "include",
-              headers: {
-                "Authorization": "Bearer " + authToken,
-                "CSRF-Token": csrfToken,
-                "X-KL-Ajax-Request": "Ajax_Request",
-                "Accept": "application/json"
-              },
-            }
-          );
-          const json = await res.json();
-          if (!json.success) throw new Error(json.error || "API error");
-          return json.data.items;
+          const tradeOffers = await fetchTradeOffers();
+          const offers = gs(tradeOffers);
+          return offers[0] || null;
         } catch (err) {
-          console.error("Error fetching offers:", err);
-          return [];
+          console.error("Error decoding tradeOffers:", err);
+          return null;
         }
       }
 
@@ -73,43 +118,62 @@ window.Tool1 = {
               totalPrice: price * quantity,
             }),
           });
-          return await res.json();
+          if (res.status === 401) {
+            localStorage.setItem("rollergods_autorun_tool1", "1");
+            window.location.reload();
+            window.tool1Running = false;
+            return null;
+          }
+          return res.json();
         } catch (err) {
-          console.error("Error buying item:", err);
+          console.error("Error during purchase:", err);
           return null;
         }
       }
 
+      // === main loop ===
       async function runTool() {
         if (!window.tool1Running) return;
+        let purchased = false;
 
-        const offers = await fetchOffers();
-        if (!Array.isArray(offers) || offers.length === 0) {
-          console.log("No offers found. Retrying...");
-          setTimeout(runTool, 1000);
-          return;
-        }
-
-        const offer = offers.find(o => o.itemId === itemId);
-
-        if (offer) {
-          console.log(`Found ${itemId} - Price: ${offer.price}, Quantity: ${offer.count}`);
-          if (offer.price <= priceThreshold) {
-            console.log("Price below threshold, attempting purchase...");
-            const json = await buyItem(offer.price, offer.count);
-            console.log("Purchase response:", json);
+        while (window.tool1Running && !purchased) {
+          const offer = await getFirstOffer();
+          if (!offer) {
+            await new Promise(r => setTimeout(r, 50));
+            continue;
           }
+
+          const [price, quantity] = offer;
+          console.log("First offer - Price:", price, "Quantity:", quantity);
+
+          if (price < priceThreshold) {
+            console.log("Price below threshold, attempting purchase...");
+            const json = await buyItem(price, quantity);
+            if (!json) break;
+
+            console.log("Purchase response:", json);
+            if (json.error === "Conflict") {
+              console.warn("Purchase conflict (409), stopping current iteration.");
+            } else {
+              console.log("✅ Purchase successful!");
+            }
+            purchased = true;
+          }
+
+          await new Promise(r => setTimeout(r, 50));
         }
 
-        if (window.tool1Running) setTimeout(runTool, 2000); // continuous
+        if (window.tool1Running) {
+          console.log("🔄 Restarting Tool1 for next purchase...");
+          setTimeout(runTool, 100);
+        }
       }
 
       runTool();
     })();
   },
-
   stop: () => {
     window.tool1Running = false;
     console.log("🛑 Tool1 stopped!");
-  }
+  },
 };
