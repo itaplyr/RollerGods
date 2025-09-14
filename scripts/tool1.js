@@ -151,7 +151,6 @@ window.Tool1 = {
           }
 
           const [price, quantity] = offer;
-          console.log(offer.name)
           console.log("First offer - Price:", price, "Quantity:", quantity);
 
           if (price < priceThreshold) {
