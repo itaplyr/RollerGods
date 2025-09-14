@@ -151,7 +151,9 @@ window.Tool1 = {
           }
 
           const [price, quantity] = offer;
-          console.log("First offer - Price:", price, "Quantity:", quantity);
+          const offerName = tradeOffers[0]?.name || "Unknown Item"; // get the item name from API
+          console.log(`Item: ${offerName}, Price: ${price}, Quantity: ${quantity}`);
+
 
           if (price < priceThreshold) {
             console.log("Price below threshold, attempting purchase...");
