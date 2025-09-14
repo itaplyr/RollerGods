@@ -82,7 +82,7 @@ window.Tool1 = {
           }
         );
         if (res.status === 401) {
-          localStorage.setItem("rollergods_autorun_tool1", "1");
+          localStorage.setItem("rollergods_autorun_tool1", true);
           window.location.reload();
           window.tool1Running = false;
           return null;
@@ -126,7 +126,7 @@ window.Tool1 = {
           });
           console.log("Purchase response status:", res.status);
           if (res.status === 401) {
-            localStorage.setItem("rollergods_autorun_tool1", "1");
+            localStorage.setItem("rollergods_autorun_tool1", true);
             window.location.reload();
             window.tool1Running = false;
             return null;
