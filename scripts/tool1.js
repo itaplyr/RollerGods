@@ -118,6 +118,7 @@ window.Tool1 = {
               totalPrice: price * quantity,
             }),
           });
+          console.log("Purchase response status:", res.status);
           if (res.status === 401) {
             localStorage.setItem("rollergods_autorun_tool1", "1");
             window.location.reload();
