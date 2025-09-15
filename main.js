@@ -187,13 +187,10 @@
     try {
       const res = await fetch(settingsUrl+"?t="+Date.now());
       const arr = await res.json();
-      console.log("Fetched settings:", arr);
       if (!arr || !arr.length) return;
-      console.log("Fetched settings2:", arr);
 
       // Filter settings for current user
       const json = arr.find(u => u.UserId === rg_userId);
-      console.log("Polled settings for user", rg_userId, json);
       if (!json) return;
 
       if (lastAppliedSettings) {
