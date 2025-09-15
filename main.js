@@ -194,10 +194,24 @@
       if (!arr || !arr[0]) return;
       const json = arr[0];
 
-      if (lastAppliedSettings && JSON.stringify(json) === JSON.stringify(lastAppliedSettings)) return;
+      // Compare with last applied settings
+      if (lastAppliedSettings) {
+        let changed = false;
+        for (let key of ["Tool","Part","Rarity","PriceThreshold","Autorun"]) {
+          if (json[key] !== lastAppliedSettings[key]) {
+            console.log(`⚠️ Mismatch on ${key}:`, 
+              "remote =", json[key], 
+              "local =", lastAppliedSettings[key]
+            );
+            changed = true;
+          }
+        }
+        if (!changed) return; // nothing changed → skip reload
+      }
 
       console.log("✅ Remote settings changed:", json);
 
+      // Save to localStorage
       if (json.Part) localStorage.setItem("tool1_part", json.Part);
       if (json.Rarity) localStorage.setItem("tool1_rarity", json.Rarity);
       if (json.PriceThreshold) localStorage.setItem("tool1_priceThreshold", json.PriceThreshold);
@@ -212,6 +226,7 @@
       console.warn("⚠️ Fetch failed:", err);
     }
   }
+
 
   setInterval(pollSettings,5000);
   pollSettings();
