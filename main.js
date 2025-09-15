@@ -190,6 +190,7 @@
 
       // Filter settings for current user
       const json = arr.find(u => u.UserId === rg_userId);
+      console.log("Polled settings for user", rg_userId, json);
       if (!json) return;
 
       if (lastAppliedSettings) {
