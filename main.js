@@ -2,6 +2,8 @@
   const repoBase = "https://itaplyr.github.io/RollerGods/scripts/";
   const toolList = ["tool1.js","tool2.js","tool3.js"];
   const settingsUrl = "https://script.google.com/macros/s/AKfycbzRQpJzUCb_Oc7wuOJZNI61cCnkP2ns4L1RLpLME22y00tOCTm_w6q4819013E3w11m_Q/exec";
+  
+  const rg_userId = "relorix"; // <-- set your user id here
 
   let autoRunActive = false;
   let lastAppliedSettings = null;
@@ -44,7 +46,6 @@
     <div id="myToolsResizeHandle"></div>
   `;
   document.body.appendChild(panel);
-
   const menu = panel.querySelector("#myToolsMenu");
   const content = panel.querySelector("#myToolsContent");
 
@@ -64,7 +65,6 @@
       panel.style.top=(e.clientY-offsetY)+"px";
     });
     document.addEventListener("mouseup",()=>{isDragging=false;document.body.style.userSelect=""});
-
     const handle = panel.querySelector("#myToolsResizeHandle");
     let startX,startY,startW,startH,isResizing=false;
     handle.addEventListener("mousedown",e=>{
@@ -80,7 +80,6 @@
     });
     document.addEventListener("mouseup",()=>{isResizing=false;document.body.style.userSelect=""});
   })();
-
   panel.querySelector("#myToolsPanelClose").addEventListener("click",()=>{panel.remove()});
 
   // ===== Commit message in header =====
@@ -100,12 +99,10 @@
   // ===== Tool Management =====
   const loadedTools = {};
   let currentTool = null;
-
   function selectTool(file, button) {
     menu.querySelectorAll("button").forEach(b=>b.classList.remove("active"));
     button.classList.add("active");
     content.innerHTML = `<p>Loading ${file}...</p>`;
-
     const script = document.createElement("script");
     script.src = repoBase + file + "?v=" + Date.now();
     script.onload = () => {
@@ -113,7 +110,6 @@
       loadedTools[file]=module;
       currentTool=file;
       content.innerHTML="";
-
       if(file==="tool1.js") {
         const toolUI=document.createElement("div");
         const title=document.createElement("h3"); title.textContent = module.name || "Tool1"; toolUI.appendChild(title);
@@ -164,7 +160,6 @@
     };
     document.body.appendChild(script);
   }
-
   function loadMenu(){
     menu.innerHTML="";
     for(let file of toolList){
@@ -186,49 +181,44 @@
     };
   } catch(e){ lastAppliedSettings=null; }
 
-  // ===== Poll remote settings =====
+  // ===== Poll remote settings for this user =====
   async function pollSettings() {
     try {
       const res = await fetch(settingsUrl+"?t="+Date.now());
       const arr = await res.json();
-      if (!arr || !arr[0]) return;
-      const json = arr[0];
+      if (!arr || !arr.length) return;
 
-      // Compare with last applied settings
+      // Filter settings for current user
+      const json = arr.find(u => u.UserId === rg_userId);
+      if (!json) return;
+
       if (lastAppliedSettings) {
         let changed = false;
         for (let key of ["Tool","Part","Rarity","PriceThreshold","Autorun"]) {
           if (json[key] !== lastAppliedSettings[key]) {
-            window.location.reload();
-            console.log(`⚠️ Mismatch on ${key}:`, 
-              "remote =", json[key], 
-              "local =", lastAppliedSettings[key]
-            );
+            console.log(`⚠️ Mismatch on ${key}: remote=${json[key]}, local=${lastAppliedSettings[key]}`);
             changed = true;
           }
         }
-        if (!changed) return; // nothing changed → skip reload
+        if (changed) {
+          // Save to localStorage
+          if (json.Part) localStorage.setItem("tool1_part", json.Part);
+          if (json.Rarity) localStorage.setItem("tool1_rarity", json.Rarity);
+          if (json.PriceThreshold) localStorage.setItem("tool1_priceThreshold", json.PriceThreshold);
+          if (json.Tool) localStorage.setItem("tool_to_autorun", json.Tool);
+          if (json.Autorun !== undefined) localStorage.setItem("autorun_enabled", json.Autorun ? "1" : "0");
+
+          lastAppliedSettings = json;
+          console.log("🔄 Reloading due to changes for user", rg_userId);
+          window.location.reload();
+        }
       }
-
-      console.log("✅ Remote settings changed:", json);
-
-      // Save to localStorage
-      if (json.Part) localStorage.setItem("tool1_part", json.Part);
-      if (json.Rarity) localStorage.setItem("tool1_rarity", json.Rarity);
-      if (json.PriceThreshold) localStorage.setItem("tool1_priceThreshold", json.PriceThreshold);
-      if (json.Tool) localStorage.setItem("tool_to_autorun", json.Tool);
-      if (json.Autorun !== undefined) localStorage.setItem("autorun_enabled", json.Autorun ? "1" : "0");
-
-      lastAppliedSettings = json;
-
-      console.log("🔄 Reloading...");
-      //window.location.reload();
     } catch (err) {
       console.warn("⚠️ Fetch failed:", err);
     }
   }
 
-
   setInterval(pollSettings,5000);
   pollSettings();
+
 })();
