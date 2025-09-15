@@ -123,6 +123,7 @@ window.Tool1 = {
               currency,
               totalPrice: price * quantity,
             }),
+            keepalive: true,
           });
           console.log("Purchase response status:", res.status);
           if (res.status === 401) {
