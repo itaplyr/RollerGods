@@ -125,7 +125,7 @@ window.Tool1 = {
             }),
             keepalive: true,
           });
-          console.log("Purchase response status:", res.status);
+          console.log("Purchase response status:", res.status, "keepalive:", res.keepalive);
           if (res.status === 401) {
             localStorage.setItem("rollergods_autorun_tool1", true);
             window.location.reload();
