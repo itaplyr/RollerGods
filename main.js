@@ -3,7 +3,8 @@
   const toolList = ["tool1.js","tool2.js","tool3.js"];
   const settingsUrl = "https://script.google.com/macros/s/AKfycbzRQpJzUCb_Oc7wuOJZNI61cCnkP2ns4L1RLpLME22y00tOCTm_w6q4819013E3w11m_Q/exec";
   
-  const rg_userId = "relorix"; // <-- set your user id here
+  const rg_userId = localStorage.getItem("rg_userId");
+  console.log("👤 Current user:", rg_userId);
 
   let autoRunActive = false;
   let lastAppliedSettings = null;
