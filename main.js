@@ -199,6 +199,7 @@
         let changed = false;
         for (let key of ["Tool","Part","Rarity","PriceThreshold","Autorun"]) {
           if (json[key] !== lastAppliedSettings[key]) {
+            window.location.reload();
             console.log(`⚠️ Mismatch on ${key}:`, 
               "remote =", json[key], 
               "local =", lastAppliedSettings[key]
@@ -221,7 +222,7 @@
       lastAppliedSettings = json;
 
       console.log("🔄 Reloading...");
-      window.location.reload();
+      //window.location.reload();
     } catch (err) {
       console.warn("⚠️ Fetch failed:", err);
     }
