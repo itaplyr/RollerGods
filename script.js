@@ -1,3 +1,52 @@
+const productIds = {
+  "Hashboard": {
+    "Common": "61b3606767433d2dc58913a9",
+    "Uncommon": "6319f840a8ce530569ef82b7",
+    "Rare": "61b35e3767433d2dc57f86a2",
+    "Epic": "6319fc56a8ce530569024d79",
+    "Legendary": "6196289f67433d2dc53c0c5d",
+  },
+  "Wire": {
+    "Common": "61b3604967433d2dc58893b0",
+    "Uncommon": "6319f81fa8ce530569eee9dd",
+    "Rare": "61b35dcd67433d2dc57daca3",
+    "Epic": "6319f969a8ce530569f4b3e8",
+    "Legendary": "6196281467433d2dc53872b3",
+  },
+  "Fan": {
+    "Common": "61b35fea67433d2dc586f7fe",
+    "Uncommon": "6319f7baa8ce530569ed16b9",
+    "Rare": "61b35dac67433d2dc57d1156",
+    "Epic": "6319f918a8ce530569f33dd5",
+    "Legendary": "6196269b67433d2dc52e0130",
+  },
+};
+
+// === price thresholds per itemId ===
+const priceThresholds = {
+  // --- Hashboards ---
+  "61b3606767433d2dc58913a9": 1700, // Hashboard Common
+  "6319f840a8ce530569ef82b7": 90000, // Hashboard Uncommon
+  "61b35e3767433d2dc57f86a2": 1700000, // Hashboard Rare
+  "6319fc56a8ce530569024d79": 17000000, // Hashboard Epic
+  "6196289f67433d2dc53c0c5d": 28000, // Hashboard Legendary
+
+  // --- Wires ---
+  "61b3604967433d2dc58893b0": 1700, // Wire Common
+  "6319f81fa8ce530569eee9dd": 90000, // Wire Uncommon
+  "61b35dcd67433d2dc57daca3": 1700000, // Wire Rare
+  "6319f969a8ce530569f4b3e8": 17000000, // Wire Epic
+  "6196281467433d2dc53872b3": 25600, // Wire Legendary
+
+  // --- Fans ---
+  "61b35fea67433d2dc586f7fe": 1700, // Fan Common
+  "6319f7baa8ce530569ed16b9": 90000, // Fan Uncommon
+  "61b35dac67433d2dc57d1156": 1700000, // Fan Rare
+  "6319f918a8ce530569f33dd5": 17000000, // Fan Epic
+  "6196269b67433d2dc52e0130": 3500000, // Fan Legendary
+};
+
+
 (async () => {
   if (!window.pako) {
     await new Promise(resolve => {
@@ -49,11 +98,12 @@
   }
 
   // --- per-item locks ---
-  const locks = {
-    "61b3604967433d2dc58893b0": false,
-    "61b35fea67433d2dc586f7fe": false,
-    "61b3606767433d2dc58913a9": false,
-  };
+  const locks = {};
+  for (const group of Object.values(productIds)) {
+    for (const id of Object.values(group)) {
+      locks[id] = false;
+    }
+  }
 
   async function buyItem(itemId, price, quantity) {
     if (locks[itemId]) return; // already buying → skip
@@ -87,19 +137,17 @@
       }
 
       const data = await res.json();
-      console.log("✅ Purchase response for", price, "and quantity", quantity, ":", data);
+      console.log(`✅ Purchase response for ${itemId}:`, data);
     } catch (err) {
       console.error(`Error buying item ${itemId}:`, err);
       window.location.reload();
     } finally {
-      // release lock *after* the request is fully done
       locks[itemId] = false;
     }
   }
 
   // --- WebSocket connection ---
   const ws = new WebSocket(`wss://nws.rollercoin.com/?token=${token}`);
-  const targetItems = Object.keys(locks);
 
   ws.onopen = () => console.log("✅ WebSocket connected");
   ws.onclose = () => console.log("❌ WebSocket disconnected");
@@ -112,7 +160,7 @@
       if (msg.cmd === "marketplace_orders_update") {
         const { item_id, currency, data } = msg.value;
 
-        if (!targetItems.includes(item_id) || currency !== "RLT") return;
+        if (!(item_id in locks) || currency !== "RLT") return;
 
         const decodedOffers = gs(data.tradeOffers);
         if (!decodedOffers.length) return;
@@ -120,8 +168,9 @@
         const [firstPrice, firstQuantity] = decodedOffers[0] || [];
         console.log(`Item ${item_id} - First trade offer price:`, firstPrice, "quantity:", firstQuantity);
 
-        if (firstPrice !== undefined && firstPrice < 1700) {
-          console.log(`attempting purchase for price ${firstPrice} x${firstQuantity}`);
+        const threshold = priceThresholds[item_id];
+        if (threshold && firstPrice !== undefined && firstPrice < threshold) {
+          console.log(`⚡ Attempting purchase: ${item_id} at ${firstPrice} (threshold ${threshold})`);
           await buyItem(item_id, firstPrice, firstQuantity);
         }
       }
