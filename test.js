@@ -1,8 +1,7 @@
-// Prevent multiple runs
-if (window.__rollergods_loaded) return;
-window.__rollergods_loaded = true;
-
 (async () => {
+    // Prevent multiple runs
+    if (window.__rollergods_loaded) return;
+    window.__rollergods_loaded = true;
     if (!window.pako) {
         await new Promise(resolve => {
             const script = document.createElement("script");
