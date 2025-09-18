@@ -52,6 +52,70 @@
 
     const locks = {};
 
+    // --- sell prices ---
+    const sellPrices = {
+        // --- Hashboards ---
+        "61b3606767433d2dc58913a9": 2200,     // Hashboard Common
+        "6319f840a8ce530569ef82b7": 120000,   // Hashboard Uncommon
+        "61b35e3767433d2dc57f86a2": 2500000,  // Hashboard Rare
+        "6319fc56a8ce530569024d79": 24000000, // Hashboard Epic
+        "6196289f67433d2dc53c0c5d": 99999999999999999999999,    // Hashboard Legendary
+
+        // --- Wires ---
+        "61b3604967433d2dc58893b0": 2200,     // Wire Common
+        "6319f81fa8ce530569eee9dd": 120000,   // Wire Uncommon
+        "61b35dcd67433d2dc57daca3": 2500000,  // Wire Rare
+        "6319f969a8ce530569f4b3e8": 24000000, // Wire Epic
+        "6196281467433d2dc53872b3": 999999999999999999999999999,    // Wire Legendary
+
+        // --- Fans ---
+        "61b35fea67433d2dc586f7fe": 2200,     // Fan Common
+        "6319f7baa8ce530569ed16b9": 120000,   // Fan Uncommon
+        "61b35dac67433d2dc57d1156": 2500000,  // Fan Rare
+        "6319f918a8ce530569f33dd5": 24000000, // Fan Epic
+        "6196269b67433d2dc52e0130": 99999999999999999999999999999999,  // Fan Legendary
+    };
+
+    // --- sell function ---
+    async function sellItem(itemId, quantity = 1, itemType = "mutation_component") {
+        const price = sellPrices[itemId];
+        if (!price) {
+            console.warn(`No sell price set for item ${itemId}`);
+            return;
+        }
+        try {
+            const res = await fetch("https://rollercoin.com/api/marketplace/sell-item", {
+                method: "POST",
+                credentials: "include",
+                headers: {
+                    "Authorization": "Bearer " + token,
+                    "CSRF-Token": csrfToken,
+                    "X-KL-Ajax-Request": "Ajax_Request",
+                    "Content-Type": "application/json",
+                },
+                body: JSON.stringify({
+                    challenge: "",
+                    action: "marketplace",
+                    itemId,
+                    itemType,
+                    totalCount: quantity,
+                    currency: "RLT",
+                    exchangeCurrency: "RLT",
+                    perItemPrice: price
+                }),
+                keepalive: true,
+            });
+            if (res.status >= 400) {
+                console.warn(`Sell failed ${res.status}`);
+                return;
+            }
+            const data = await res.json();
+            console.log(`✅ Listed ${itemId} for sale at ${price}`, data);
+        } catch (err) {
+            console.error("Sell error:", err);
+        }
+    }
+
     // --- buy function ---
     async function buyItem(itemId, price, quantity, itemType = "mutation_component") {
         if (locks[itemId]) return;
@@ -83,6 +147,10 @@
             }
             const data = await res.json();
             console.log(`✅ Bought ${itemId}`, data);
+
+            // Auto-sell after buy
+            await sellItem(itemId, quantity, itemType);
+
         } catch (err) {
             console.error("Buy error:", err);
         } finally {
