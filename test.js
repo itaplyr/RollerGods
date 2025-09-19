@@ -1,3 +1,91 @@
+(() => {
+    const toPh = {
+        'kh': 1e-12,
+        'mh': 1e-9,
+        'gh': 1e-6,
+        'th': 1e-3,
+        'ph': 1,
+        'eh': 1e3
+    };
+
+    function updateRatios() {
+        document.querySelectorAll('a.marketplace-buy-item-card').forEach(card => {
+            const powerRaw = card.querySelector('.item-addition-power')?.innerText?.trim();
+            const bonusRaw = card.querySelector('.item-addition-bonus')?.innerText?.trim();
+            const priceRaw = card.querySelector('.item-price')?.innerText?.trim();
+
+            if (!powerRaw || !priceRaw) return;
+
+            // --- parse power ---
+            const valueMatch = powerRaw.match(/[\d\s,.]+/);
+            const unitMatch = powerRaw.match(/(kh|mh|gh|th|ph|eh)/i);
+            let value = valueMatch ? valueMatch[0].replace(/\s+/g,'').replace(/,/g,'.') : null;
+            value = value ? parseFloat(value) : NaN;
+
+            let powerInPh;
+            if (unitMatch && toPh[unitMatch[0].toLowerCase()] !== undefined) {
+                powerInPh = value * toPh[unitMatch[0].toLowerCase()];
+            } else if (/h\/s/i.test(powerRaw) && !unitMatch) {
+                powerInPh = value / 1e15;
+            } else return;
+
+            // --- parse price ---
+            const priceNum = parseFloat(priceRaw.replace(/[^\d,.-]/g,'').replace(/,/g,'.'));
+            if (!isFinite(priceNum) || !isFinite(powerInPh) || powerInPh === 0) return;
+
+            // --- compute ratios ---
+            const rltPerPh = priceNum / powerInPh;
+            const ratioText = `${rltPerPh.toLocaleString(undefined, {maximumFractionDigits: 2})} RLT/Ph`;
+
+            let ratioBonusText = null;
+            let rltPerPercent = null;
+            if (bonusRaw) {
+                const bonusNum = parseFloat(bonusRaw.replace('%','').replace(',','.'));
+                if (bonusNum > 0) {
+                    rltPerPercent = priceNum / bonusNum;
+                    ratioBonusText = `${rltPerPercent.toLocaleString(undefined, {maximumFractionDigits: 2})} RLT/%`;
+                }
+            }
+
+            const priceWrapper = card.querySelector('.item-price-wrapper');
+            if (!priceWrapper) return;
+
+            // --- inject or update RLT/Ph ---
+            let ratioEl = priceWrapper.querySelector('.rlt-per-ph');
+            if (!ratioEl) {
+                ratioEl = document.createElement('p');
+                ratioEl.className = 'rlt-per-ph';
+                ratioEl.style.fontSize = '15px';
+                ratioEl.style.marginTop = '2px';
+                ratioEl.style.fontWeight = 'bold';
+                priceWrapper.appendChild(ratioEl);
+            }
+            ratioEl.innerText = ratioText;
+            ratioEl.style.color = rltPerPh > 3 ? 'orange' : '#0f0';
+
+            // --- inject or update RLT/% ---
+            if (ratioBonusText) {
+                let bonusEl = priceWrapper.querySelector('.rlt-per-bonus');
+                if (!bonusEl) {
+                    bonusEl = document.createElement('p');
+                    bonusEl.className = 'rlt-per-bonus';
+                    bonusEl.style.fontSize = '15px';
+                    bonusEl.style.marginTop = '2px';
+                    bonusEl.style.fontWeight = 'bold';
+                    priceWrapper.appendChild(bonusEl);
+                }
+                bonusEl.innerText = ratioBonusText;
+                bonusEl.style.color = rltPerPercent > 5 ? 'orange' : '#0f0';
+            }
+        });
+    }
+
+    // Run once immediately
+    updateRatios();
+    // Then update every second
+    setInterval(updateRatios, 1000);
+})();
+
 (async () => {
     // Only run if enabled
     if (localStorage.getItem("rollergods_autobuy_enabled") !== "1") return;
@@ -82,7 +170,14 @@
 
     // --- sell function ---
     async function sellItem(itemId, quantity = 1, itemType = "mutation_component") {
-        const price = sellPrices[itemId];
+        // Check for user-set price in sellSnipes
+        let sellSnipes = JSON.parse(localStorage.getItem('sellSnipes') || '{}');
+        let customKey = itemType + ':' + itemId;
+        let price = sellSnipes[customKey];
+
+        // If no custom price, use default
+        if (!price) price = sellPrices[itemId];
+
         if (!price) {
             console.warn(`No sell price set for item ${itemId}`);
             return;
@@ -111,7 +206,6 @@
             });
             if (res.status >= 400) {
                 console.warn(`Sell failed ${res.status}`);
-                window.location.reload();
             }
             const data = await res.json();
             console.log(`✅ Listed ${itemId} for sale at ${price}`, data);
@@ -147,6 +241,7 @@
             });
             if (res.status >= 400) {
                 console.warn(`Purchase failed ${res.status}`);
+                window.location.reload();
                 return;
             }
             const data = await res.json();
@@ -293,7 +388,7 @@
                     return;
                 }
                 let snipes = JSON.parse(localStorage.getItem('snipes') || '{}');
-                snipes[item.type + ':' + item.id] = price;
+                snipes[item.type + ':' + item.id] = price*1000000;
                 localStorage.setItem('snipes', JSON.stringify(snipes));
                 alert('Snipe set for ' + item.type + ' ' + item.id + ' at price ' + price);
             };
@@ -327,6 +422,116 @@
     setInterval(() => {
         if (isMarketplaceBuyPage() && !document.getElementById('snipe-ui')) {
             createSnipeUI();
+        }
+    }, 1000);
+})();
+
+(function() {
+    function waitForElement(selector, timeout = 10000) {
+        return new Promise((resolve, reject) => {
+            const start = Date.now();
+            const interval = setInterval(() => {
+                const el = document.querySelector(selector);
+                if (el) {
+                    clearInterval(interval);
+                    resolve(el);
+                } else if (Date.now() - start > timeout) {
+                    clearInterval(interval);
+                    reject(new Error('Element not found: ' + selector));
+                }
+            }, 100);
+        });
+    }
+
+    async function createSellSnipeUI() {
+        try {
+            const wrapper = await waitForElement('[class*="roller-button default cyan"]');
+            if (!wrapper || document.getElementById('sell-snipe-ui')) return;
+
+            const container = document.createElement('div');
+            container.id = 'sell-snipe-ui';
+            container.style.display = 'flex';
+            container.style.alignItems = 'center';
+            container.style.justifyContent = 'center';
+            container.style.marginLeft = '0px';
+            container.style.marginTop = '18px';
+            container.style.borderRadius = '12px';
+            container.style.background = '#1F1F2D';
+            container.style.padding = '10px 18px';
+            container.style.boxShadow = '0 2px 8px rgba(0,0,0,0.07)';
+
+            const priceInput = document.createElement('input');
+            priceInput.type = 'number';
+            priceInput.placeholder = 'Sell Price';
+            priceInput.className = 'quantity-input form-control';
+            priceInput.style.width = '100px';
+            priceInput.style.marginRight = '8px';
+            priceInput.style.borderRadius = '8px';
+            priceInput.style.border = '1px solid #ccc';
+            priceInput.style.boxShadow = 'none';
+            priceInput.style.textAlign = 'center';
+            priceInput.style.appearance = 'textfield';
+            priceInput.style.MozAppearance = 'textfield';
+            priceInput.addEventListener('wheel', e => e.preventDefault());
+            priceInput.addEventListener('keydown', function(e) {
+                if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
+                    e.preventDefault();
+                }
+            });
+
+            const snipeBtn = document.createElement('button');
+            snipeBtn.textContent = 'Sell';
+            snipeBtn.className = wrapper.className;
+            snipeBtn.style.borderRadius = '8px';
+
+            container.appendChild(priceInput);
+            container.appendChild(snipeBtn);
+            wrapper.parentNode.insertBefore(container, wrapper.nextSibling);
+
+            // 🔑 Ensure sell UI is placed below the buy UI if it exists
+            const buyUI = document.getElementById('snipe-ui');
+            if (buyUI) {
+                buyUI.parentNode.insertBefore(container, buyUI.nextSibling);
+            } else {
+                wrapper.parentNode.insertBefore(container, wrapper.nextSibling);
+            }
+
+            snipeBtn.onclick = () => {
+                const item = getItemIdFromUrl();
+                const price = parseFloat(priceInput.value);
+                if (!item || isNaN(price)) {
+                    alert('Invalid item or price!');
+                    return;
+                }
+                let sellSnipes = JSON.parse(localStorage.getItem('sellSnipes') || '{}');
+                sellSnipes[item.type + ':' + item.id] = price*1000000;
+                localStorage.setItem('sellSnipes', JSON.stringify(sellSnipes));
+                alert('Sell price set for ' + item.type + ' ' + item.id + ' at price ' + price);
+            };
+        } catch (e) {
+            console.error(e);
+        }
+    }
+
+    function isMarketplaceSellPage() {
+        return /^\/marketplace\/buy\/[^\/]+\/[^\/]+$/.test(location.pathname);
+    }
+
+    function getItemIdFromUrl() {
+        const parts = location.pathname.split('/');
+        return parts.length === 5 ? { type: parts[3], id: parts[4] } : null;
+    }
+
+    function init() {
+        if (isMarketplaceSellPage()) {
+            createSellSnipeUI();
+        }
+    }
+
+    document.addEventListener('DOMContentLoaded', init);
+    setInterval(() => {
+        if (isMarketplaceSellPage() && !document.getElementById('sell-snipe-ui')) {
+            createSellSnipeUI();
         }
     }, 1000);
 })();
