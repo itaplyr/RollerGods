@@ -109,10 +109,9 @@
                 }),
                 keepalive: true,
             });
-            if (res.status == 401) window.location.reload();
             if (res.status >= 400) {
                 console.warn(`Sell failed ${res.status}`);
-                return;
+                window.location.reload();
             }
             const data = await res.json();
             console.log(`✅ Listed ${itemId} for sale at ${price}`, data);
@@ -166,7 +165,7 @@
     // --- WebSocket connection ---
     const ws = new WebSocket(`wss://nws.rollercoin.com/?token=${token}`);
     ws.onopen = () => console.log("✅ WS connected");
-    ws.onclose = () => console.log("❌ WS closed");
+    ws.onclose = () => window.location.reload();
     ws.onerror = e => console.error("WS error:", e);
 
     ws.onmessage = async (event) => {
