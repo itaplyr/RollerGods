@@ -83,7 +83,6 @@
     // --- sell function ---
     async function sellItem(itemId, quantity = 1, itemType = "mutation_component") {
         const price = sellPrices[itemId];
-        price = price / 1.05
         if (!price) {
             console.warn(`No sell price set for item ${itemId}`);
             return;
@@ -106,7 +105,7 @@
                     totalCount: quantity,
                     currency: "RLT",
                     exchangeCurrency: "RLT",
-                    perItemPrice: price
+                    perItemPrice: Math.floor(price / 1.05)
                 }),
                 keepalive: true,
             });
