@@ -1,5 +1,7 @@
-//v1.0
 (async () => {
+    // Only run if enabled
+    if (localStorage.getItem("rollergods_autobuy_enabled") !== "1") return;
+
     // Prevent multiple runs
     if (window.__rollergods_loaded) return;
     window.__rollergods_loaded = true;
@@ -168,6 +170,11 @@
     ws.onerror = e => console.error("WS error:", e);
 
     ws.onmessage = async (event) => {
+        // Stop if parameter is disabled
+        if (localStorage.getItem("rollergods_autobuy_enabled") !== "1") {
+            ws.close();
+            return;
+        }
         try {
             const msg = JSON.parse(event.data);
             if (msg.cmd !== "marketplace_orders_update") return;
@@ -195,6 +202,7 @@
 
     // === Poll Google Sheet to check if script should run ===
     async function checkIfRunning() {
+        if (localStorage.getItem("rollergods_autobuy_enabled") !== "1") return false;
         const rg_userId = localStorage.getItem("rg_userId");
         if (!rg_userId) return false;
         return true; // TEMP: always return true
@@ -202,6 +210,12 @@
 
     let autoRunEnabled = true;
     setInterval(async () => {
+        // Stop if parameter is disabled
+        if (localStorage.getItem("rollergods_autobuy_enabled") !== "1") {
+            ws.close();
+            autoRunEnabled = false;
+            return;
+        }
         const running = await checkIfRunning();
         if (!running && autoRunEnabled) {
             console.log("🛑 Script disabled from Google Sheet. Stopping automation...");
