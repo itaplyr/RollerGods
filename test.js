@@ -1,3 +1,4 @@
+//v1.0
 (async () => {
     // Prevent multiple runs
     if (window.__rollergods_loaded) return;
@@ -106,9 +107,9 @@
                 }),
                 keepalive: true,
             });
+            if (res.status == 401) window.location.reload();
             if (res.status >= 400) {
                 console.warn(`Sell failed ${res.status}`);
-                if (res.status === 401) window.location.reload();
                 return;
             }
             const data = await res.json();
