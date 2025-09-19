@@ -47,6 +47,7 @@
     const csrfToken = (document.cookie.match(/x-csrf=([^;]+)/) || [])[1];
     if (!token || !csrfToken) {
         console.error("❌ Missing token or CSRF token!");
+        window.location.reload();
         return;
     }
 
@@ -107,6 +108,7 @@
             });
             if (res.status >= 400) {
                 console.warn(`Sell failed ${res.status}`);
+                if (res.status === 401) window.location.reload();
                 return;
             }
             const data = await res.json();
